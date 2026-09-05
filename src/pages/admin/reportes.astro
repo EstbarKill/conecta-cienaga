@@ -1,0 +1,98 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getReports, updateReportStatus, reviewPost } from '../../services/admin';
+
+let actionError: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const reportId = String(formData.get('reportId') ?? '');
+  const postId = String(formData.get('postId') ?? '');
+  const action = String(formData.get('action') ?? '');
+
+  if (action === 'dismiss') {
+    const result = await updateReportStatus(Astro.locals.supabase, reportId, 'DISMISSED');
+    if (!result.success) actionError = result.error;
+  } else if (action === 'reviewed') {
+    const result = await updateReportStatus(Astro.locals.supabase, reportId, 'REVIEWED');
+    if (!result.success) actionError = result.error;
+  } else if (action === 'pause_post') {
+    const result = await reviewPost(Astro.locals.supabase, postId, 'PAUSED');
+    if (result.success) await updateReportStatus(Astro.locals.supabase, reportId, 'REVIEWED');
+    else actionError = result.error;
+  } else if (action === 'reject_post') {
+    const result = await reviewPost(Astro.locals.supabase, postId, 'REJECTED', 'Retirada tras reporte de la comunidad.');
+    if (result.success) await updateReportStatus(Astro.locals.supabase, reportId, 'REVIEWED');
+    else actionError = result.error;
+  }
+
+  if (!actionError) {
+    return Astro.redirect('/admin/reportes?actualizado=1');
+  }
+}
+
+const REASON_LABELS: Record<string, string> = {
+  ESTAFA: 'Estafa',
+  CONTENIDO_FALSO: 'Contenido falso',
+  SPAM: 'Spam',
+  CONTENIDO_OFENSIVO: 'Contenido ofensivo',
+  OFERTA_SOSPECHOSA: 'Oferta sospechosa',
+  INFO_INCORRECTA: 'Información incorrecta',
+  OTRO: 'Otro',
+};
+
+const reports = await getReports(Astro.locals.supabase, 'PENDING');
+const updated = Astro.url.searchParams.get('actualizado') === '1';
+---
+
+<AdminLayout title="Reportes" active="reportes">
+  {updated && <div class="alert alert-success" role="status">Acción aplicada.</div>}
+  {actionError && <div class="alert alert-error" role="alert">{actionError}</div>}
+
+  {reports.length === 0 ? (
+    <p class="empty-state">No hay reportes pendientes de revisión.</p>
+  ) : (
+    <ul class="admin-post-list">
+      {reports.map((report) => (
+        <li class="admin-post-card">
+          <div class="post-card-header">
+            <span class="status-badge status-pending">{REASON_LABELS[report.reason] ?? report.reason}</span>
+            <span class="post-card-date">
+              {new Date(report.createdAt).toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' })}
+            </span>
+          </div>
+
+          <h2>
+            {report.postStatus === 'DELETED' && !report.postSlug ? (
+              report.postTitle
+            ) : (
+              <a href={`/oportunidad/${report.postSlug}`} target="_blank" rel="noopener">{report.postTitle}</a>
+            )}
+          </h2>
+          <p class="post-card-meta">Reportado por {report.reporterName}</p>
+          {report.description && <p>{report.description}</p>}
+
+          <div class="admin-actions">
+            <form method="POST">
+              <input type="hidden" name="reportId" value={report.id} />
+              <input type="hidden" name="postId" value={report.postId} />
+              <input type="hidden" name="action" value="pause_post" />
+              <button type="submit" class="btn-secondary">Pausar publicación</button>
+            </form>
+            <form method="POST">
+              <input type="hidden" name="reportId" value={report.id} />
+              <input type="hidden" name="postId" value={report.postId} />
+              <input type="hidden" name="action" value="reject_post" />
+              <button type="submit" class="btn-danger">Retirar publicación</button>
+            </form>
+            <form method="POST">
+              <input type="hidden" name="reportId" value={report.id} />
+              <input type="hidden" name="action" value="dismiss" />
+              <button type="submit" class="btn-secondary">Descartar reporte</button>
+            </form>
+          </div>
+        </li>
+      ))}
+    </ul>
+  )}
+</AdminLayout>

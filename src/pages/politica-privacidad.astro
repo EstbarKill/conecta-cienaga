@@ -1,0 +1,65 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Política de privacidad" description="Cómo Conecta Ciénaga maneja tus datos personales.">
+  <main>
+    <h1>Política de privacidad</h1>
+    <p class="subtitle">Última actualización: {new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+
+    <div class="alert alert-error" role="note">
+      <strong>Aviso:</strong> este documento describe de forma general cómo manejamos tus datos mientras
+      la plataforma está en fase de validación (MVP). No sustituye una revisión legal formal por un
+      abogado especializado en protección de datos en Colombia (Ley 1581 de 2012 y normas
+      relacionadas), la cual se realizará antes de un lanzamiento a mayor escala.
+    </div>
+
+    <h2>Qué información recopilamos</h2>
+    <ul>
+      <li><strong>Al registrarte:</strong> correo electrónico, nombre completo, y tipo de cuenta (persona o negocio).</li>
+      <li><strong>En tu perfil (opcional):</strong> teléfono, WhatsApp.</li>
+      <li><strong>Al publicar una oportunidad:</strong> título, descripción, categoría, ubicación, dirección específica (si la agregas), y los datos de contacto que tú decidas incluir.</li>
+      <li><strong>Automáticamente:</strong> fecha de creación de tu cuenta y de tus publicaciones.</li>
+    </ul>
+
+    <h2>Cómo usamos tu información</h2>
+    <ul>
+      <li>Para mostrar tus publicaciones a otras personas de la comunidad.</li>
+      <li>Para permitir que otros usuarios te contacten directamente (solo si están autenticados y hacen clic explícito en "Ver contacto").</li>
+      <li>Para moderar el contenido publicado y prevenir abuso.</li>
+      <li>Para comunicarnos contigo sobre el estado de tus publicaciones o tu cuenta.</li>
+    </ul>
+
+    <h2>Qué es público y qué no</h2>
+    <ul>
+      <li><strong>Público (visible sin iniciar sesión):</strong> título, descripción, categoría, ubicación y dirección de tus publicaciones aprobadas.</li>
+      <li><strong>Visible solo para usuarios autenticados, tras un clic explícito:</strong> tu teléfono, WhatsApp y correo de contacto en cada publicación.</li>
+      <li><strong>Privado (solo tú y los administradores):</strong> tu correo de registro, tus publicaciones no aprobadas o rechazadas.</li>
+    </ul>
+
+    <h2>Con quién compartimos tu información</h2>
+    <p>
+      No vendemos ni compartimos tu información con terceros con fines publicitarios. Usamos
+      <a href="https://supabase.com" target="_blank" rel="noopener">Supabase</a> como proveedor de
+      base de datos y autenticación, y <a href="https://vercel.com" target="_blank" rel="noopener">Vercel</a>
+      como proveedor de hosting — ambos procesan datos en nuestro nombre bajo sus propias políticas de seguridad.
+    </p>
+
+    <h2>Tus derechos</h2>
+    <p>Puedes en cualquier momento:</p>
+    <ul>
+      <li>Editar tu información de perfil desde <a href="/perfil">Mi perfil</a>.</li>
+      <li>Eliminar o pausar tus publicaciones desde <a href="/mis-publicaciones">Mis publicaciones</a>.</li>
+      <li>Solicitar la eliminación completa de tu cuenta y datos asociados, escribiéndonos por los canales de contacto de la plataforma.</li>
+    </ul>
+
+    <h2>Cookies</h2>
+    <p>
+      Usamos únicamente cookies técnicas necesarias para mantener tu sesión iniciada de forma segura.
+      No usamos cookies de rastreo publicitario ni de terceros.
+    </p>
+
+    <h2>Contacto</h2>
+    <p>Si tienes preguntas sobre esta política, puedes contactarnos a través de los canales oficiales de Conecta Ciénaga.</p>
+  </main>
+</BaseLayout>

@@ -1,0 +1,87 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import CommunityMap from '../components/CommunityMap.astro';
+import { getRecentPosts } from '../services/posts';
+import { getActiveCategories } from '../services/catalog';
+import type { PostType } from '../types/database';
+
+const [recentPosts, mapPosts, categories] = await Promise.all([
+  getRecentPosts(Astro.locals.supabase, 6),
+  getRecentPosts(Astro.locals.supabase, 20),
+  getActiveCategories(Astro.locals.supabase),
+]);
+
+const TYPE_LABELS: Record<PostType, string> = {
+  EMPLOYMENT: 'Empleo',
+  SERVICE: 'Servicio',
+  JOB_SEEKER: 'Busca empleo',
+};
+---
+
+<BaseLayout title="Inicio">
+  <main class="wide">
+    <section class="home-hero">
+      <div class="home-hero-text">
+        <h1>Encuentra oportunidades en Ciénaga</h1>
+        <p class="hero-subtitle">
+          Publica lo que necesitas o lo que ofreces. Conecta directamente con personas de tu comunidad, sin intermediarios.
+        </p>
+
+        <form method="GET" action="/explorar" class="search-form hero-search">
+          <label for="q" class="visually-hidden">Buscar oportunidades</label>
+          <div class="search-form-row">
+            <input type="text" id="q" name="q" placeholder="Ej: cocina, electricista, ventas..." />
+            <button type="submit">Buscar</button>
+          </div>
+        </form>
+
+        <div class="hero-actions">
+          <a href="/publicar" class="btn-primary-link">Publicar oportunidad</a>
+          <a href="/explorar" class="btn-secondary-link">Ver todas</a>
+        </div>
+      </div>
+
+      <div class="home-hero-map">
+        <CommunityMap posts={mapPosts} />
+      </div>
+    </section>
+
+    {categories.length > 0 && (
+      <section>
+        <h2>Categorías</h2>
+        <ul class="category-grid">
+          {categories.map((c) => (
+            <li><a href={`/explorar?categoria=${c.id}`} class="category-chip">{c.name}</a></li>
+          ))}
+        </ul>
+      </section>
+    )}
+
+    <section>
+      <h2>Oportunidades recientes</h2>
+      {recentPosts.length === 0 ? (
+        <p class="empty-state">Todavía no hay publicaciones activas. ¡Sé el primero en publicar!</p>
+      ) : (
+        <ul class="post-grid">
+          {recentPosts.map((post) => (
+            <li class="post-card">
+              <span class="type-badge">{TYPE_LABELS[post.type]}</span>
+              <h3><a href={`/oportunidad/${post.slug}`}>{post.title}</a></h3>
+              <p class="post-card-meta">{post.categoryName} · {post.municipio}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p><a href="/explorar">Ver todas las oportunidades →</a></p>
+    </section>
+
+    <section class="how-it-works">
+      <h2>¿Cómo funciona?</h2>
+      <ol class="steps-list">
+        <li><strong>Regístrate gratis</strong> — solo necesitas tu correo.</li>
+        <li><strong>Publica o busca</strong> — un empleo, un servicio, o tu disponibilidad.</li>
+        <li><strong>Conecta directamente</strong> — por WhatsApp, teléfono o correo, sin intermediarios.</li>
+      </ol>
+    </section>
+  </main>
+</BaseLayout>

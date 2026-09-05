@@ -1,0 +1,114 @@
+---
+const { user, profile } = Astro.locals;
+---
+<header class="site-header" id="site-header">
+
+<div class="site-header-inner">
+
+<a href="/" class="site-logo" aria-label="Conecta Ciénaga - Inicio">
+  <span class="site-logo-mark">CC</span>
+
+  <span class="site-logo-text">
+    <strong>Conecta</strong>
+    <span>Ciénaga</span>
+  </span>
+</a>
+
+<nav class="site-nav" aria-label="Navegación principal">
+
+  <a href="/" class="site-nav-link">
+    Inicio
+  </a>
+
+  <a href="/explorar" class="site-nav-link">
+    Explorar
+  </a>
+
+  <a href="/publicar" class="site-nav-link site-nav-publish">
+    <span>+</span>
+    Publicar
+  </a>
+
+  {!user ? (
+    <>
+      <a href="/login" class="site-nav-link">
+        Iniciar sesión
+      </a>
+
+      <a href="/register" class="site-nav-register">
+        Crear cuenta
+      </a>
+    </>
+  ) : (
+    <div class="site-user">
+
+      <div class="site-user-avatar">
+        {(profile?.fullName ?? user.email ?? 'U')
+          .charAt(0)
+          .toUpperCase()}
+      </div>
+
+      <span class="site-user-name">
+        {profile?.fullName ?? user.email}
+      </span>
+
+    </div>
+  )}
+
+</nav>
+
+<button
+  type="button"
+  class="site-menu-button"
+  aria-label="Abrir menú"
+  aria-expanded="false"
+  aria-controls="site-mobile-menu"
+>
+  <span></span>
+  <span></span>
+  <span></span>
+</button>
+
+</div>
+
+<div class="site-mobile-menu" id="site-mobile-menu">
+
+<a href="/">
+  Inicio
+</a>
+
+<a href="/explorar">
+  Explorar oportunidades
+</a>
+
+<a href="/publicar">
+  Publicar oportunidad
+</a>
+
+{!user ? (
+  <>
+    <a href="/login">
+      Iniciar sesión
+    </a>
+
+    <a href="/register">
+      Crear cuenta
+    </a>
+  </>
+) : (
+  <div class="site-mobile-user">
+    <span>
+      Sesión iniciada como
+    </span>
+
+    <strong>
+      {profile?.fullName ?? user.email}
+    </strong>
+  </div>
+)}
+
+</div>
+
+</header>
+
+<script> const header = document.querySelector<HTMLElement>('#site-header'); const menuButton = document.querySelector<HTMLButtonElement>('.site-menu-button'); const mobileMenu = document.querySelector<HTMLElement>('#site-mobile-menu'); if (header && menuButton && mobileMenu) { const updateHeader = () => { header.classList.toggle('is-scrolled', window.scrollY > 12); }; updateHeader(); window.addEventListener('scroll', updateHeader, { passive: true, }); menuButton.addEventListener('click', () => { const isOpen = header.classList.toggle('menu-open'); menuButton.setAttribute( 'aria-expanded', String(isOpen) ); }); mobileMenu.querySelectorAll('a').forEach((link) => { link.addEventListener('click', () => { header.classList.remove('menu-open'); menuButton.setAttribute( 'aria-expanded', 'false' ); }); }); } </script>

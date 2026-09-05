@@ -1,0 +1,111 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { searchPosts } from '../services/posts';
+import { getActiveCategories, getLocations } from '../services/catalog';
+import type { PostType } from '../types/database';
+
+const PAGE_SIZE = 12;
+
+const q = Astro.url.searchParams.get('q') ?? '';
+const categoriaParam = Astro.url.searchParams.get('categoria');
+const tipoParam = Astro.url.searchParams.get('tipo') as PostType | null;
+const ubicacionParam = Astro.url.searchParams.get('ubicacion');
+const pageParam = Number(Astro.url.searchParams.get('page') ?? '1');
+
+const categoryId = categoriaParam ? Number(categoriaParam) : undefined;
+const locationId = ubicacionParam ? Number(ubicacionParam) : undefined;
+const type = tipoParam && ['EMPLOYMENT', 'SERVICE', 'JOB_SEEKER'].includes(tipoParam) ? tipoParam : undefined;
+const page = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
+
+const [categories, locations, results] = await Promise.all([
+  getActiveCategories(Astro.locals.supabase),
+  getLocations(Astro.locals.supabase),
+  searchPosts(Astro.locals.supabase, { text: q, categoryId, type, locationId, page, pageSize: PAGE_SIZE }),
+]);
+
+const TYPE_LABELS: Record<PostType, string> = {
+  EMPLOYMENT: 'Empleo',
+  SERVICE: 'Servicio',
+  JOB_SEEKER: 'Busca empleo',
+};
+
+/** Reconstruye la query string cambiando solo el parámetro `page`, para los enlaces de paginación. */
+function pageUrl(targetPage: number): string {
+  const params = new URLSearchParams(Astro.url.searchParams);
+  params.set('page', String(targetPage));
+  return `/explorar?${params.toString()}`;
+}
+---
+
+<BaseLayout title="Explorar oportunidades" description="Empleos, servicios y oficios disponibles en Ciénaga, Magdalena.">
+  <main class="wide">
+    <h1>Explorar oportunidades</h1>
+
+    <form method="GET" action="/explorar" class="search-form">
+      <div class="search-form-row">
+        <label for="q" class="visually-hidden">Buscar</label>
+        <input type="text" id="q" name="q" value={q} placeholder="Buscar por palabra clave..." />
+        <button type="submit">Buscar</button>
+      </div>
+
+      <div class="search-form-filters">
+        <div>
+          <label for="tipo">Tipo</label>
+          <select id="tipo" name="tipo">
+            <option value="">Todos</option>
+            {Object.entries(TYPE_LABELS).map(([value, label]) => (
+              <option value={value} selected={value === type}>{label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label for="categoria">Categoría</label>
+          <select id="categoria" name="categoria">
+            <option value="">Todas</option>
+            {categories.map((c) => (
+              <option value={c.id} selected={c.id === categoryId}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label for="ubicacion">Municipio</label>
+          <select id="ubicacion" name="ubicacion">
+            <option value="">Todos</option>
+            {locations.map((l) => (
+              <option value={l.id} selected={l.id === locationId}>{l.municipio}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+    </form>
+
+    {results.posts.length === 0 ? (
+      <p class="empty-state">No encontramos oportunidades para tu búsqueda. Intenta con otros filtros.</p>
+    ) : (
+      <>
+        <p class="results-count">{results.total} {results.total === 1 ? 'oportunidad encontrada' : 'oportunidades encontradas'}</p>
+
+        <ul class="post-grid">
+          {results.posts.map((post) => (
+            <li class="post-card">
+              <span class="type-badge">{TYPE_LABELS[post.type]}</span>
+              <h2><a href={`/oportunidad/${post.slug}`}>{post.title}</a></h2>
+              <p class="post-card-meta">{post.categoryName} · {post.municipio}</p>
+              <p class="post-card-excerpt">{post.description.slice(0, 140)}{post.description.length > 140 ? '…' : ''}</p>
+            </li>
+          ))}
+        </ul>
+
+        {results.totalPages > 1 && (
+          <nav class="pagination" aria-label="Paginación de resultados">
+            {page > 1 && <a href={pageUrl(page - 1)}>← Anterior</a>}
+            <span>Página {page} de {results.totalPages}</span>
+            {page < results.totalPages && <a href={pageUrl(page + 1)}>Siguiente →</a>}
+          </nav>
+        )}
+      </>
+    )}
+  </main>
+</BaseLayout>

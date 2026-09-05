@@ -1,0 +1,133 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { updateProfile, getMyBusinessProfile, upsertBusinessProfile, uploadAvatar } from '../services/profile';
+import Avatar from '../components/Avatar.astro';
+
+if (!Astro.locals.user || !Astro.locals.profile) {
+  return Astro.redirect('/login?redirect=/perfil');
+}
+
+const { user, profile } = Astro.locals;
+
+let errorMessage: string | null = null;
+let businessErrorMessage: string | null = null;
+let avatarErrorMessage: string | null = null;
+let updated = Astro.url.searchParams.get('actualizado') === '1';
+let businessUpdated = Astro.url.searchParams.get('negocio_actualizado') === '1';
+let avatarUpdated = Astro.url.searchParams.get('avatar_actualizado') === '1';
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const formType = String(formData.get('formType') ?? '');
+
+  if (formType === 'profile') {
+    const fullName = String(formData.get('fullName') ?? '').trim();
+    const phone = String(formData.get('phone') ?? '').trim() || null;
+    const whatsapp = String(formData.get('whatsapp') ?? '').trim() || null;
+
+    if (fullName.length < 2) {
+      errorMessage = 'El nombre debe tener al menos 2 caracteres.';
+    } else {
+      const result = await updateProfile(Astro.locals.supabase, user.id, { fullName, phone, whatsapp });
+      if (result.success) {
+        return Astro.redirect('/perfil?actualizado=1');
+      }
+      errorMessage = result.error;
+    }
+  } else if (formType === 'business') {
+    const businessName = String(formData.get('businessName') ?? '').trim();
+    const description = String(formData.get('description') ?? '').trim() || null;
+
+    if (businessName.length < 2 || businessName.length > 120) {
+      businessErrorMessage = 'El nombre del negocio debe tener entre 2 y 120 caracteres.';
+    } else {
+      const result = await upsertBusinessProfile(Astro.locals.supabase, user.id, { businessName, description });
+      if (result.success) {
+        return Astro.redirect('/perfil?negocio_actualizado=1');
+      }
+      businessErrorMessage = result.error;
+    }
+  } else if (formType === 'avatar') {
+    const file = formData.get('avatar');
+
+    if (!(file instanceof File) || file.size === 0) {
+      avatarErrorMessage = 'Selecciona una imagen para subir.';
+    } else {
+      const result = await uploadAvatar(Astro.locals.supabase, user.id, file);
+      if (result.success) {
+        return Astro.redirect('/perfil?avatar_actualizado=1');
+      }
+      avatarErrorMessage = result.error;
+    }
+  }
+}
+
+const businessProfile = profile.role === 'BUSINESS' ? await getMyBusinessProfile(Astro.locals.supabase, user.id) : null;
+---
+
+<BaseLayout title="Mi perfil" noindex>
+  <main>
+    <h1>Mi perfil</h1>
+    <p class="subtitle">{user.email}</p>
+
+    <section class="avatar-section">
+      <Avatar name={profile.fullName} url={profile.avatarUrl} size={72} />
+      <form method="POST" enctype="multipart/form-data" class="avatar-form">
+        <input type="hidden" name="formType" value="avatar" />
+        <label for="avatar" class="visually-hidden">Foto de perfil</label>
+        <input type="file" id="avatar" name="avatar" accept="image/jpeg,image/png,image/webp" required />
+        <button type="submit" class="btn-secondary" data-loading-text="Subiendo...">Cambiar foto</button>
+      </form>
+    </section>
+    {avatarUpdated && <div class="alert alert-success" role="status">Foto de perfil actualizada.</div>}
+    {avatarErrorMessage && <div class="alert alert-error" role="alert">{avatarErrorMessage}</div>}
+    <p class="field-hint avatar-hint">JPG, PNG o WEBP, máximo 2 MB.</p>
+
+    {updated && <div class="alert alert-success" role="status">Perfil actualizado.</div>}
+    {errorMessage && <div class="alert alert-error" role="alert">{errorMessage}</div>}
+
+    <form method="POST" id="profile-form">
+      <input type="hidden" name="formType" value="profile" />
+      <div>
+        <label for="fullName">Nombre completo</label>
+        <input type="text" id="fullName" name="fullName" required minlength="2" value={profile.fullName} />
+      </div>
+      <div>
+        <label for="whatsapp">WhatsApp</label>
+        <input type="text" id="whatsapp" name="whatsapp" value={profile.whatsapp ?? ''} placeholder="300 123 4567" />
+      </div>
+      <div>
+        <label for="phone">Teléfono</label>
+        <input type="text" id="phone" name="phone" value={profile.phone ?? ''} placeholder="300 123 4567" />
+      </div>
+      <button type="submit" data-loading-text="Guardando...">Guardar cambios</button>
+    </form>
+
+    {profile.role === 'BUSINESS' && (
+      <>
+        <h2 class="section-divider">Perfil de negocio</h2>
+        <p class="subtitle">Esta información es pública y aparece junto a tus publicaciones.</p>
+
+        {businessUpdated && <div class="alert alert-success" role="status">Perfil de negocio actualizado.</div>}
+        {businessErrorMessage && <div class="alert alert-error" role="alert">{businessErrorMessage}</div>}
+
+        <form method="POST" id="business-form">
+          <input type="hidden" name="formType" value="business" />
+          <div>
+            <label for="businessName">Nombre del negocio</label>
+            <input type="text" id="businessName" name="businessName" required minlength="2" maxlength="120"
+              value={businessProfile?.businessName ?? ''} />
+          </div>
+          <div>
+            <label for="description">Descripción (opcional)</label>
+            <textarea id="description" name="description" rows="4"
+              placeholder="Cuéntale a la comunidad a qué se dedica tu negocio.">{businessProfile?.description ?? ''}</textarea>
+          </div>
+          <button type="submit" data-loading-text="Guardando...">{businessProfile ? 'Actualizar negocio' : 'Crear perfil de negocio'}</button>
+        </form>
+      </>
+    )}
+
+    <p class="auth-links"><a href="/mis-publicaciones">← Ir a mis publicaciones</a></p>
+  </main>
+</BaseLayout>

@@ -1,0 +1,61 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Términos y condiciones" description="Condiciones de uso de Conecta Ciénaga.">
+  <main>
+    <h1>Términos y condiciones</h1>
+    <p class="subtitle">Última actualización: {new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+
+    <div class="alert alert-error" role="note">
+      <strong>Aviso:</strong> este documento es una versión general para la fase de validación (MVP)
+      de la plataforma. Será revisado formalmente por un abogado antes de un lanzamiento a mayor escala.
+    </div>
+
+    <h2>Qué es Conecta Ciénaga</h2>
+    <p>
+      Conecta Ciénaga es una plataforma gratuita que conecta a personas que buscan oportunidades
+      laborales o quieren ofrecer sus servicios, con personas y negocios que necesitan contratar,
+      comenzando en el municipio de Ciénaga, Magdalena.
+    </p>
+
+    <h2>Uso del servicio</h2>
+    <ul>
+      <li>Debes tener al menos 18 años para crear una cuenta.</li>
+      <li>La información que publiques debe ser veraz. Publicar contenido falso, engañoso o fraudulento puede resultar en la eliminación de tu cuenta.</li>
+      <li>Eres responsable de la información de contacto que decides compartir en tus publicaciones.</li>
+      <li>Nos reservamos el derecho de rechazar, pausar o eliminar publicaciones que violen estos términos, incluyan contenido ofensivo, spam, o actividades ilegales.</li>
+    </ul>
+
+    <h2>Contratación entre usuarios</h2>
+    <p>
+      Conecta Ciénaga es un canal de conexión, no un empleador ni un intermediario laboral formal.
+      No somos parte de ningún acuerdo, contrato o negociación entre las personas que se contactan a
+      través de la plataforma. Cualquier acuerdo laboral o de servicios es responsabilidad exclusiva
+      de quienes lo pactan.
+    </p>
+
+    <h2>Moderación</h2>
+    <p>
+      Toda publicación pasa por un proceso de revisión antes de aparecer públicamente. Nos reservamos
+      el derecho de rechazar publicaciones sin necesidad de justificar cada decisión, aunque
+      normalmente indicamos el motivo del rechazo.
+    </p>
+
+    <h2>Cuentas</h2>
+    <p>
+      Eres responsable de mantener la seguridad de tu contraseña. Podemos suspender cuentas que
+      infrinjan estos términos, incluyendo el uso de información falsa, acoso a otros usuarios, o
+      intentos de manipular el sistema (por ejemplo, publicaciones masivas automatizadas).
+    </p>
+
+    <h2>Cambios a estos términos</h2>
+    <p>
+      Podemos actualizar estos términos conforme la plataforma evolucione. Notificaremos cambios
+      importantes a través del sitio.
+    </p>
+
+    <h2>Contacto</h2>
+    <p>Para preguntas sobre estos términos, contáctanos a través de los canales oficiales de Conecta Ciénaga.</p>
+  </main>
+</BaseLayout>

@@ -1,0 +1,95 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getPendingPosts, reviewPost } from '../../services/admin';
+import type { PostType } from '../../types/database';
+
+let actionError: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const postId = String(formData.get('postId') ?? '');
+  const action = String(formData.get('action') ?? '');
+  const reason = String(formData.get('reason') ?? '').trim() || null;
+
+  if (action === 'approve') {
+    const result = await reviewPost(Astro.locals.supabase, postId, 'PUBLISHED');
+    if (!result.success) actionError = result.error;
+  } else if (action === 'reject') {
+    if (!reason) {
+      actionError = 'Debes indicar un motivo para rechazar la publicación.';
+    } else {
+      const result = await reviewPost(Astro.locals.supabase, postId, 'REJECTED', reason);
+      if (!result.success) actionError = result.error;
+    }
+  }
+
+  if (!actionError) {
+    return Astro.redirect('/admin/moderacion?actualizado=1');
+  }
+}
+
+const posts = await getPendingPosts(Astro.locals.supabase);
+
+const TYPE_LABELS: Record<PostType, string> = {
+  EMPLOYMENT: 'Empleo',
+  SERVICE: 'Servicio',
+  JOB_SEEKER: 'Busca empleo',
+};
+
+const updated = Astro.url.searchParams.get('actualizado') === '1';
+---
+
+<AdminLayout title="Moderación" active="moderacion">
+  {updated && <div class="alert alert-success" role="status">Acción aplicada.</div>}
+  {actionError && <div class="alert alert-error" role="alert">{actionError}</div>}
+
+  {posts.length === 0 ? (
+    <p class="empty-state">No hay publicaciones pendientes de revisión. 🎉</p>
+  ) : (
+    <ul class="admin-post-list">
+      {posts.map((post) => (
+        <li class="admin-post-card">
+          <div class="post-card-header">
+            <span class="type-badge">{TYPE_LABELS[post.type]}</span>
+            <span class="post-card-date">
+              {new Date(post.createdAt).toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' })}
+            </span>
+          </div>
+
+          <h2>{post.title}</h2>
+          <p class="post-card-meta">
+            {post.categoryName} · {post.municipio} · por {post.authorName}
+            {post.authorEmail && ` (${post.authorEmail})`}
+          </p>
+          <p>{post.description}</p>
+          {post.address && <p class="post-card-meta">📍 {post.address}</p>}
+
+          <details class="admin-details">
+            <summary>Ver contacto</summary>
+            <ul class="contact-list">
+              {post.contactWhatsapp && <li>WhatsApp: {post.contactWhatsapp}</li>}
+              {post.contactPhone && <li>Teléfono: {post.contactPhone}</li>}
+              {post.contactEmail && <li>Correo: {post.contactEmail}</li>}
+            </ul>
+          </details>
+
+          <div class="admin-actions">
+            <form method="POST">
+              <input type="hidden" name="postId" value={post.id} />
+              <input type="hidden" name="action" value="approve" />
+              <button type="submit" class="btn-approve">Aprobar</button>
+            </form>
+
+            <form method="POST" class="admin-reject-form">
+              <input type="hidden" name="postId" value={post.id} />
+              <input type="hidden" name="action" value="reject" />
+              <label for={`reason-${post.id}`} class="visually-hidden">Motivo del rechazo</label>
+              <input type="text" id={`reason-${post.id}`} name="reason" placeholder="Motivo del rechazo (obligatorio)" />
+              <button type="submit" class="btn-danger">Rechazar</button>
+            </form>
+          </div>
+        </li>
+      ))}
+    </ul>
+  )}
+</AdminLayout>

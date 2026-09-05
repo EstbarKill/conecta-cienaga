@@ -1,0 +1,110 @@
+---
+import type { PostWithRelations } from '../types/database';
+
+interface Props {
+  posts: PostWithRelations[];
+}
+
+const { posts } = Astro.props;
+
+const TYPE_COLORS: Record<string, string> = {
+  EMPLOYMENT: 'var(--color-primary)',
+  SERVICE: 'var(--color-accent)',
+  JOB_SEEKER: 'var(--color-coral)',
+};
+
+const TYPE_LABELS: Record<string, string> = {
+  EMPLOYMENT: 'Empleo',
+  SERVICE: 'Servicio',
+  JOB_SEEKER: 'Busca empleo',
+};
+
+// Posiciones aleatorias dentro del área "segura" de la silueta (evita
+// que un punto caiga fuera del contorno o pegado al borde). Como esta
+// página se renderiza en el servidor por cada visita, el resultado es
+// genuinamente aleatorio en cada carga — no hay geocodificación real
+// detrás, es intencional (ver leyenda bajo el mapa).
+const MAX_MARKERS = 20;
+const markers = posts.slice(0, MAX_MARKERS).map((post) => ({
+  post,
+  top: 44 + Math.random() * 36, // % — interior de la franja urbana (evita bordes y laguna)
+  left: 55 + Math.random() * 32,
+  delay: Math.round(Math.random() * 500),
+}));
+---
+
+<div class="community-map">
+  <svg viewBox="0 0 700 480" role="img" aria-label="Ilustración del municipio de Ciénaga, entre el Mar Caribe y la Ciénaga Grande de Santa Marta, basada en cartografía de referencia" class="map-svg">
+    <rect x="0" y="0" width="700" height="480" class="map-sea" />
+
+    <!-- Ciénaga Grande de Santa Marta y zona de Pueblo Viejo: la gran
+         laguna vecina real, al suroeste — referencia geográfica
+         honesta tomada de cartografía de referencia (IGAC / Colombia
+         en Mapas), aunque el contorno en sí siga siendo ilustrativo. -->
+    <path
+      d="M 20,395 C 70,365 150,368 200,392 C 235,410 228,440 185,458 C 130,478 55,470 25,445 C 8,430 5,412 20,395 Z"
+      class="map-lagoon"
+    />
+    <text x="45" y="420" class="map-geo-label">Ciénaga Grande</text>
+
+    <!-- Contorno del municipio, redibujado a partir de cartografía de
+         referencia (Colombia en Mapas / IGAC): costa diagonal
+         característica al noroeste (curva, natural) y límite
+         administrativo más recto hacia el interior (líneas rectas,
+         como un deslinde real) — no es un límite oficial exacto. -->
+    <path
+      d="M 65,45
+         C 140,25 230,45 300,100
+         C 345,138 368,180 378,222
+         L 440,208
+         L 545,196
+         L 645,214
+         L 698,245
+         L 682,315
+         L 660,380
+         L 605,412
+         L 540,432
+         L 465,445
+         L 390,440
+         L 330,415
+         C 295,398 268,372 248,338
+         C 228,304 218,268 198,232
+         C 168,182 120,115 95,78
+         Z"
+      class="map-land"
+    />
+    <text x="440" y="35" class="map-geo-label">Mar Caribe</text>
+    <text x="600" y="270" class="map-geo-label map-geo-label-muted">Cordobita</text>
+  </svg>
+
+  <div class="map-markers">
+    {markers.map(({ post, top, left, delay }) => (
+      <div class="map-marker" style={`top:${top}%; left:${left}%; animation-delay:${delay}ms;`}>
+        <a
+          href={`/oportunidad/${post.slug}`}
+          class="map-marker-dot"
+          style={`background:${TYPE_COLORS[post.type] ?? 'var(--color-primary)'};`}
+          aria-label={`${post.title} — ${TYPE_LABELS[post.type] ?? post.type}, ${post.municipio}`}
+        >
+          <span class="map-tooltip">
+            <strong>{post.title}</strong>
+            <span>{TYPE_LABELS[post.type] ?? post.type} · {post.categoryName}</span>
+          </span>
+        </a>
+      </div>
+    ))}
+  </div>
+
+  {markers.length === 0 && (
+    <p class="map-empty">Todavía no hay publicaciones activas en el mapa. ¡Sé el primero!</p>
+  )}
+
+  <div class="map-legend">
+    <span><i style="background: var(--color-primary);"></i> Empleo</span>
+    <span><i style="background: var(--color-accent);"></i> Servicio</span>
+    <span><i style="background: var(--color-coral);"></i> Busca empleo</span>
+  </div>
+  <p class="map-caption">
+    Vista ilustrativa del municipio, redibujada a partir de cartografía de referencia — las publicaciones se ubican al azar dentro del contorno, no según su dirección real. No es un límite oficial exacto.
+  </p>
+</div>

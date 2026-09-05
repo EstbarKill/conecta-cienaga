@@ -1,0 +1,95 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getUsers, setUserActive, setUserRole } from '../../services/admin';
+import type { UserRole } from '../../types/database';
+
+let actionError: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const action = String(formData.get('action') ?? '');
+  const profileId = String(formData.get('profileId') ?? '');
+
+  if (action === 'toggle_active') {
+    const nextActive = formData.get('nextActive') === 'true';
+    const result = await setUserActive(Astro.locals.supabase, profileId, nextActive);
+    if (!result.success) actionError = result.error;
+  } else if (action === 'set_role') {
+    const role = String(formData.get('role') ?? '') as UserRole;
+    if (!['USER', 'BUSINESS', 'ADMIN'].includes(role)) {
+      actionError = 'Rol inválido.';
+    } else {
+      const result = await setUserRole(Astro.locals.supabase, profileId, role);
+      if (!result.success) actionError = result.error;
+    }
+  }
+
+  if (!actionError) {
+    return Astro.redirect('/admin/usuarios?actualizado=1');
+  }
+}
+
+const users = await getUsers(Astro.locals.supabase);
+const updated = Astro.url.searchParams.get('actualizado') === '1';
+const currentUserId = Astro.locals.user?.id;
+
+const ROLE_LABELS: Record<UserRole, string> = {
+  USER: 'Persona',
+  BUSINESS: 'Negocio',
+  ADMIN: 'Administrador',
+};
+---
+
+<AdminLayout title="Usuarios" active="usuarios">
+  {updated && <div class="alert alert-success" role="status">Cambios guardados.</div>}
+  {actionError && <div class="alert alert-error" role="alert">{actionError}</div>}
+
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th scope="col">Nombre</th>
+        <th scope="col">Correo</th>
+        <th scope="col">Rol</th>
+        <th scope="col">Estado</th>
+        <th scope="col">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {users.map((u) => (
+        <tr>
+          <td>{u.fullName}{u.id === currentUserId && <em> (tú)</em>}</td>
+          <td class="admin-table-muted">{u.email ?? '—'}</td>
+          <td>
+            <form method="POST" class="admin-role-form">
+              <input type="hidden" name="action" value="set_role" />
+              <input type="hidden" name="profileId" value={u.id} />
+              <select name="role" disabled={u.id === currentUserId}>
+                {(['USER', 'BUSINESS', 'ADMIN'] as UserRole[]).map((r) => (
+                  <option value={r} selected={r === u.role}>{ROLE_LABELS[r]}</option>
+                ))}
+              </select>
+              {u.id !== currentUserId && <button type="submit" class="btn-secondary">Cambiar</button>}
+            </form>
+          </td>
+          <td>
+            <span class={`status-badge ${u.isActive ? 'status-published' : 'status-paused'}`}>
+              {u.isActive ? 'Activo' : 'Desactivado'}
+            </span>
+          </td>
+          <td class="admin-table-actions">
+            {u.id !== currentUserId && (
+              <form method="POST" onsubmit={u.isActive ? "return confirm('¿Desactivar esta cuenta? La persona no podrá iniciar sesión.')" : undefined}>
+                <input type="hidden" name="action" value="toggle_active" />
+                <input type="hidden" name="profileId" value={u.id} />
+                <input type="hidden" name="nextActive" value={String(!u.isActive)} />
+                <button type="submit" class={u.isActive ? 'btn-danger' : 'btn-secondary'}>
+                  {u.isActive ? 'Desactivar' : 'Activar'}
+                </button>
+              </form>
+            )}
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</AdminLayout>

@@ -1,0 +1,137 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getPostBySlug, getPostContact } from '../../services/posts';
+import type { PostStatus, PostType } from '../../types/database';
+
+const { slug } = Astro.params;
+if (!slug) return Astro.redirect('/404');
+
+const currentUserId = Astro.locals.user?.id ?? null;
+const result = await getPostBySlug(Astro.locals.supabase, slug, currentUserId);
+
+if (!result) {
+  return new Response(null, { status: 404 });
+}
+
+const { post, isOwner } = result;
+const isNew = Astro.url.searchParams.get('nuevo') === '1';
+const wantsContact = Astro.url.searchParams.get('verContacto') === '1';
+
+let contact: { phone: string | null; whatsapp: string | null; email: string | null } | null = null;
+let contactError: string | null = null;
+
+if (isOwner) {
+  // El autor ya tiene sus propios datos de contacto en `post`
+  // (OWNER_POST_COLUMNS los incluye) — no necesita la RPC ni el clic.
+  contact = { phone: post.contactPhone ?? null, whatsapp: post.contactWhatsapp ?? null, email: post.contactEmail ?? null };
+} else if (wantsContact) {
+  if (!Astro.locals.user) {
+    return Astro.redirect(`/login?redirect=${encodeURIComponent(Astro.url.pathname + '?verContacto=1')}`);
+  }
+  const contactResult = await getPostContact(Astro.locals.supabase, post.id);
+  if (contactResult.success) {
+    contact = contactResult.data;
+  } else {
+    contactError = contactResult.error;
+  }
+}
+
+const TYPE_LABELS: Record<PostType, string> = {
+  EMPLOYMENT: 'Empleo',
+  SERVICE: 'Servicio',
+  JOB_SEEKER: 'Busca empleo',
+};
+
+const STATUS_MESSAGES: Partial<Record<PostStatus, string>> = {
+  PENDING: 'Tu publicación está en revisión. Solo tú puedes verla así.',
+  REJECTED: 'Tu publicación fue rechazada.',
+  PAUSED: 'Tu publicación está pausada. No aparece en las búsquedas.',
+  EXPIRED: 'Tu publicación expiró. Edítala para reactivarla.',
+  DRAFT: 'Este es un borrador, aún no se ha enviado a revisión.',
+};
+
+// Datos estructurados JobPosting (schema.org) solo para publicaciones
+// de tipo EMPLOYMENT ya públicas. Nunca se incluye el contacto (que
+// está protegido tras login + clic) — solo información ya visible sin
+// autenticarse, para no contradecir esa protección de privacidad.
+const showJobPostingSchema = post.type === 'EMPLOYMENT' && post.status === 'PUBLISHED';
+const jobPostingSchema = showJobPostingSchema
+  ? {
+      '@context': 'https://schema.org',
+      '@type': 'JobPosting',
+      title: post.title,
+      description: post.description,
+      datePosted: post.createdAt,
+      validThrough: post.expiresAt,
+      employmentType: 'OTHER',
+      jobLocation: {
+        '@type': 'Place',
+        address: {
+          '@type': 'PostalAddress',
+          addressLocality: post.municipio,
+          addressRegion: post.departamento,
+          addressCountry: 'CO',
+        },
+      },
+      hiringOrganization: {
+        '@type': 'Organization',
+        name: 'Conecta Ciénaga',
+      },
+    }
+  : null;
+---
+
+<BaseLayout title={post.title} description={post.description.slice(0, 160)} noindex={post.status !== 'PUBLISHED'}>
+  {jobPostingSchema && (
+    <Fragment slot="head">
+      <script type="application/ld+json" is:inline set:html={JSON.stringify(jobPostingSchema)} />
+    </Fragment>
+  )}
+  <main>
+    {isNew && (
+      <div class="alert alert-success" role="status">
+        ¡Publicado! Tu oportunidad está en revisión y aparecerá públicamente cuando sea aprobada.
+      </div>
+    )}
+
+    {isOwner && post.status !== 'PUBLISHED' && STATUS_MESSAGES[post.status] && (
+      <div class="alert alert-error" role="status">
+        {STATUS_MESSAGES[post.status]}
+        {post.status === 'REJECTED' && post.rejectionReason && (
+          <> Motivo: {post.rejectionReason}</>
+        )}
+      </div>
+    )}
+
+    <span class="type-badge">{TYPE_LABELS[post.type]}</span>
+    <h1>{post.title}</h1>
+    <p class="post-card-meta">{post.categoryName} · {post.municipio}, {post.departamento}</p>
+    {post.address && <p class="post-card-meta">📍 {post.address}</p>}
+
+    <p>{post.description}</p>
+
+    <section class="contact-box">
+      <h2>Contacto</h2>
+
+      {contact ? (
+        <ul class="contact-list">
+          {contact.whatsapp && <li>WhatsApp: {contact.whatsapp}</li>}
+          {contact.phone && <li>Teléfono: {contact.phone}</li>}
+          {contact.email && <li>Correo: {contact.email}</li>}
+        </ul>
+      ) : contactError ? (
+        <p class="alert alert-error" role="alert">{contactError}</p>
+      ) : (
+        <a href={`?verContacto=1`} class="btn-primary-link">Ver contacto</a>
+      )}
+    </section>
+
+    {isOwner && (
+      <p><a href="/mis-publicaciones">← Volver a mis publicaciones</a></p>
+    )}
+
+    {!isOwner && currentUserId && (
+      <p class="report-link"><a href={`/reportar?post=${post.id}`}>🚩 Reportar esta publicación</a></p>
+    )}
+  </main>
+</BaseLayout>

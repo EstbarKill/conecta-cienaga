@@ -1,0 +1,24 @@
+# Dependencias
+node_modules/
+
+# Build
+dist/
+.vercel/
+.output/
+
+# Astro
+.astro/
+
+# Variables de entorno — NUNCA subir valores reales
+.env
+.env.local
+.env.*.local
+
+# Editor / OS
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+*.log
+
+# Testing
+coverage/

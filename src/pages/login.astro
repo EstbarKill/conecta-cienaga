@@ -1,0 +1,74 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { signIn } from '../services/auth';
+
+let errorMessage: string | null = null;
+let infoMessage: string | null = null;
+
+// Mensajes de error que pueden llegar por query param desde el
+// middleware (ej. cuenta deshabilitada) o desde otras páginas.
+const queryError = Astro.url.searchParams.get('error');
+if (queryError === 'cuenta_deshabilitada') {
+  errorMessage = 'Tu cuenta ha sido deshabilitada. Contacta al administrador si crees que es un error.';
+} else if (queryError === 'enlace_invalido') {
+  errorMessage = 'El enlace no es válido o ya expiró. Solicita uno nuevo.';
+}
+
+if (Astro.url.searchParams.get('motivo') === 'inactividad') {
+  infoMessage = 'Cerramos tu sesión por inactividad prolongada, para proteger tu cuenta. Inicia sesión de nuevo.';
+}
+
+const redirectTo = Astro.url.searchParams.get('redirect') ?? '/';
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const email = String(formData.get('email') ?? '').trim();
+  const password = String(formData.get('password') ?? '');
+
+  if (!email || !password) {
+    errorMessage = 'Completa correo y contraseña.';
+  } else {
+    const result = await signIn(Astro.locals.supabase, email, password);
+    if (result.success) {
+      return Astro.redirect(redirectTo);
+    }
+    errorMessage = result.error;
+  }
+}
+---
+
+<BaseLayout title="Iniciar sesión" noindex>
+  <main>
+    <h1>Iniciar sesión</h1>
+    <p class="subtitle">Entra para publicar oportunidades y contactar directamente.</p>
+
+    {infoMessage && (
+      <div class="alert alert-info" role="status">
+        {infoMessage}
+      </div>
+    )}
+
+    {errorMessage && (
+      <div class="alert alert-error" role="alert">
+        {errorMessage}
+      </div>
+    )}
+
+    <form method="POST" id="login-form">
+      <div>
+        <label for="email">Correo electrónico</label>
+        <input type="email" id="email" name="email" required autocomplete="email" />
+      </div>
+      <div>
+        <label for="password">Contraseña</label>
+        <input type="password" id="password" name="password" required autocomplete="current-password" />
+      </div>
+      <button type="submit" data-loading-text="Iniciando sesión...">Iniciar sesión</button>
+    </form>
+
+    <div class="auth-links">
+      <a href="/recuperar-password">¿Olvidaste tu contraseña?</a>
+      <a href="/register">¿No tienes cuenta? Regístrate</a>
+    </div>
+  </main>
+</BaseLayout>

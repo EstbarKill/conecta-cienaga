@@ -1,0 +1,141 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { getPostById, updatePost, setAuthorPostStatus } from '../../../services/posts';
+import { getActiveCategories, getLocations } from '../../../services/catalog';
+
+if (!Astro.locals.user) {
+  return Astro.redirect(`/login?redirect=${encodeURIComponent(Astro.url.pathname)}`);
+}
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect('/mis-publicaciones');
+
+const post = await getPostById(Astro.locals.supabase, id, Astro.locals.user.id);
+if (!post) {
+  return new Response('Publicación no encontrada.', { status: 404 });
+}
+
+if (post.status === 'DELETED' || post.status === 'EXPIRED') {
+  return Astro.redirect('/mis-publicaciones');
+}
+
+const categories = await getActiveCategories(Astro.locals.supabase);
+const locations = await getLocations(Astro.locals.supabase);
+
+let errorMessage: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const categoryId = Number(formData.get('categoryId'));
+  const locationId = Number(formData.get('locationId'));
+  const title = String(formData.get('title') ?? '').trim();
+  const description = String(formData.get('description') ?? '').trim();
+  const address = String(formData.get('address') ?? '').trim() || null;
+  const contactPhone = String(formData.get('contactPhone') ?? '').trim() || null;
+  const contactWhatsapp = String(formData.get('contactWhatsapp') ?? '').trim() || null;
+  const contactEmail = String(formData.get('contactEmail') ?? '').trim() || null;
+
+  if (!categoryId || !locationId) {
+    errorMessage = 'Selecciona categoría y ubicación.';
+  } else if (title.length < 5 || title.length > 120) {
+    errorMessage = 'El título debe tener entre 5 y 120 caracteres.';
+  } else if (description.length < 20 || description.length > 3000) {
+    errorMessage = 'La descripción debe tener entre 20 y 3000 caracteres.';
+  } else if (address && address.length > 300) {
+    errorMessage = 'La dirección es demasiado larga (máximo 300 caracteres).';
+  } else if (!contactPhone && !contactWhatsapp && !contactEmail) {
+    errorMessage = 'Agrega al menos un medio de contacto.';
+  } else {
+    const result = await updatePost(Astro.locals.supabase, post.id, {
+      categoryId,
+      locationId,
+      title,
+      description,
+      address,
+      contactPhone,
+      contactWhatsapp,
+      contactEmail,
+    });
+
+    if (result.success) {
+      // Reenviar a revisión si el contenido pudo cambiar la
+      // publicación ya visible o previamente rechazada — nunca se
+      // salta moderación tras una edición sustancial.
+      if (post.status === 'PUBLISHED' || post.status === 'PAUSED' || post.status === 'REJECTED') {
+        await setAuthorPostStatus(Astro.locals.supabase, post.id, 'PENDING');
+      }
+      return Astro.redirect('/mis-publicaciones?actualizado=1');
+    }
+    errorMessage = result.error;
+  }
+}
+---
+
+<BaseLayout title="Editar publicación" noindex>
+  <main>
+    <h1>Editar publicación</h1>
+    {(post.status === 'PUBLISHED' || post.status === 'PAUSED') && (
+      <p class="field-hint">
+        Al guardar, esta publicación volverá a estado "En revisión" antes de mostrarse de nuevo.
+      </p>
+    )}
+
+    {errorMessage && (
+      <div class="alert alert-error" role="alert">{errorMessage}</div>
+    )}
+
+    <form method="POST" id="edit-form">
+      <div>
+        <label for="categoryId">Categoría</label>
+        <select id="categoryId" name="categoryId" required>
+          {categories.map((c) => (
+            <option value={c.id} selected={c.id === post.categoryId}>{c.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label for="locationId">Municipio</label>
+        <select id="locationId" name="locationId" required>
+          {locations.map((l) => (
+            <option value={l.id} selected={l.id === post.locationId}>{l.municipio}, {l.departamento}</option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label for="title">Título</label>
+        <input type="text" id="title" name="title" required minlength="5" maxlength="120" value={post.title} />
+      </div>
+
+      <div>
+        <label for="description">Descripción</label>
+        <textarea id="description" name="description" required minlength="20" maxlength="3000" rows="6">{post.description}</textarea>
+      </div>
+
+      <div>
+        <label for="address">Dirección específica (opcional)</label>
+        <textarea id="address" name="address" maxlength="300" rows="2">{post.address ?? ''}</textarea>
+        <p class="field-hint">Si tu negocio o servicio tiene un local físico, agrega la dirección para que te encuentren fácil.</p>
+      </div>
+
+      <fieldset>
+        <legend>Contacto (agrega al menos uno)</legend>
+        <div>
+          <label for="contactWhatsapp">WhatsApp</label>
+          <input type="text" id="contactWhatsapp" name="contactWhatsapp" value={post.contactWhatsapp ?? ''} />
+        </div>
+        <div>
+          <label for="contactPhone">Teléfono</label>
+          <input type="text" id="contactPhone" name="contactPhone" value={post.contactPhone ?? ''} />
+        </div>
+        <div>
+          <label for="contactEmail">Correo electrónico</label>
+          <input type="email" id="contactEmail" name="contactEmail" value={post.contactEmail ?? ''} />
+        </div>
+      </fieldset>
+
+      <button type="submit" data-loading-text="Guardando...">Guardar cambios</button>
+    </form>
+  </main>
+</BaseLayout>

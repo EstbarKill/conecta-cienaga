@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+jobs:
+  build:
+    name: Build & Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+        env:
+          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      - name: Audit dependencies (non-blocking)
+        run: npm audit --audit-level=critical || true
+        # No-blocking por ahora: hay una vulnerabilidad "high" conocida y
+        # documentada en @astrojs/vercel (path-to-regexp, build-time only,
+        # sin fix disponible sin downgrade breaking). Se revisa en cada PR
+        # y se sube a "blocking" en cuanto exista un fix upstream.
+
+  # El job de RLS (tests/sql/rls-critical.test.sql) requiere una
+  # instancia de Postgres con el esquema migrado — no corre en este
+  # pipeline por ahora (necesitaría `supabase start` en el runner,
+  # que añade minutos considerables a cada PR). Se corre manualmente
+  # antes de cada release; documentado en README.md → Testing.

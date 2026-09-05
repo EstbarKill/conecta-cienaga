@@ -1,0 +1,60 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import { getDashboardStats } from '../services/admin';
+
+interface Props {
+  title: string;
+  active: 'resumen' | 'moderacion' | 'reportes' | 'categorias' | 'usuarios';
+}
+
+const { title, active } = Astro.props;
+
+// El middleware ya protege /admin/*, pero se re-verifica aquí como
+// segunda capa — ningún punto de control queda solo (sección 12 del
+// estándar: "nunca confiar únicamente en el frontend", extendido aquí
+// a "nunca confiar en un único punto de control").
+if (Astro.locals.profile?.role !== 'ADMIN') {
+  return new Response('No autorizado.', { status: 403 });
+}
+
+// Contadores para las insignias del sidebar (pendientes de atención).
+const stats = await getDashboardStats(Astro.locals.supabase);
+
+const NAV = [
+  { key: 'resumen', label: 'Resumen', href: '/admin', icon: 'grid', badge: 0 },
+  { key: 'moderacion', label: 'Moderación', href: '/admin/moderacion', icon: 'check', badge: stats.pendingPosts },
+  { key: 'reportes', label: 'Reportes', href: '/admin/reportes', icon: 'flag', badge: stats.pendingReports },
+  { key: 'categorias', label: 'Categorías', href: '/admin/categorias', icon: 'tag', badge: 0 },
+  { key: 'usuarios', label: 'Usuarios', href: '/admin/usuarios', icon: 'users', badge: 0 },
+] as const;
+
+const ICONS: Record<string, string> = {
+  grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+  check: '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/>',
+  flag: '<path d="M5 21V4"/><path d="M5 4h13l-3 4.5L18 13H5"/>',
+  tag: '<path d="M20.5 12.5l-8-8H4v8.5l8 8a1.5 1.5 0 0 0 2 0l6.5-6.5a1.5 1.5 0 0 0 0-2z"/><circle cx="8.5" cy="8.5" r="1.5"/>',
+  users: '<circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.5 3-6 6.5-6s6.5 2.5 6.5 6"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.2c2.7.4 4.7 2.5 4.7 5.8"/>',
+};
+---
+
+<BaseLayout title={`Admin · ${title}`} noindex>
+  <div class="admin-shell">
+    <aside class="admin-sidebar">
+      <p class="admin-sidebar-title">Panel de administración</p>
+      <nav aria-label="Secciones de administración">
+        {NAV.map((item) => (
+          <a href={item.href} class:list={['admin-nav-item', { 'admin-nav-item-active': item.key === active }]}>
+            <svg class="admin-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" set:html={ICONS[item.icon]} />
+            <span>{item.label}</span>
+            {item.badge > 0 && <span class="admin-nav-badge">{item.badge}</span>}
+          </a>
+        ))}
+      </nav>
+    </aside>
+
+    <main class="admin-main">
+      <h1>{title}</h1>
+      <slot />
+    </main>
+  </div>
+</BaseLayout>

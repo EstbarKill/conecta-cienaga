@@ -1,0 +1,86 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getAllCategories, createCategory, setCategoryActive, deleteCategory } from '../../services/admin';
+
+let actionError: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const action = String(formData.get('action') ?? '');
+
+  if (action === 'create') {
+    const name = String(formData.get('name') ?? '').trim();
+    if (name.length < 2 || name.length > 60) {
+      actionError = 'El nombre de la categoría debe tener entre 2 y 60 caracteres.';
+    } else {
+      const result = await createCategory(Astro.locals.supabase, name);
+      if (!result.success) actionError = result.error;
+    }
+  } else if (action === 'toggle') {
+    const categoryId = Number(formData.get('categoryId'));
+    const nextActive = formData.get('nextActive') === 'true';
+    const result = await setCategoryActive(Astro.locals.supabase, categoryId, nextActive);
+    if (!result.success) actionError = result.error;
+  } else if (action === 'delete') {
+    const categoryId = Number(formData.get('categoryId'));
+    const result = await deleteCategory(Astro.locals.supabase, categoryId);
+    if (!result.success) actionError = result.error;
+  }
+
+  if (!actionError) {
+    return Astro.redirect('/admin/categorias?actualizado=1');
+  }
+}
+
+const categories = await getAllCategories(Astro.locals.supabase);
+const updated = Astro.url.searchParams.get('actualizado') === '1';
+---
+
+<AdminLayout title="Categorías" active="categorias">
+  {updated && <div class="alert alert-success" role="status">Cambios guardados.</div>}
+  {actionError && <div class="alert alert-error" role="alert">{actionError}</div>}
+
+  <form method="POST" class="admin-inline-form">
+    <input type="hidden" name="action" value="create" />
+    <label for="name" class="visually-hidden">Nueva categoría</label>
+    <input type="text" id="name" name="name" required minlength="2" maxlength="60" placeholder="Nombre de la nueva categoría" />
+    <button type="submit">Agregar categoría</button>
+  </form>
+
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th scope="col">Nombre</th>
+        <th scope="col">Slug</th>
+        <th scope="col">Estado</th>
+        <th scope="col">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {categories.map((c) => (
+        <tr>
+          <td>{c.name}</td>
+          <td class="admin-table-muted">{c.slug}</td>
+          <td>
+            <span class={`status-badge ${c.isActive ? 'status-published' : 'status-paused'}`}>
+              {c.isActive ? 'Activa' : 'Inactiva'}
+            </span>
+          </td>
+          <td class="admin-table-actions">
+            <form method="POST">
+              <input type="hidden" name="action" value="toggle" />
+              <input type="hidden" name="categoryId" value={c.id} />
+              <input type="hidden" name="nextActive" value={String(!c.isActive)} />
+              <button type="submit" class="btn-secondary">{c.isActive ? 'Desactivar' : 'Activar'}</button>
+            </form>
+            <form method="POST" onsubmit="return confirm('¿Eliminar esta categoría? Solo funciona si ninguna publicación la usa.')">
+              <input type="hidden" name="action" value="delete" />
+              <input type="hidden" name="categoryId" value={c.id} />
+              <button type="submit" class="btn-danger">Eliminar</button>
+            </form>
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</AdminLayout>

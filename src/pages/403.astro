@@ -1,0 +1,15 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+Astro.response.status = 403;
+---
+
+<BaseLayout title="Acceso no autorizado" noindex>
+  <main>
+    <h1>No tienes acceso a esta página</h1>
+    <p class="subtitle">Esta sección requiere permisos que tu cuenta no tiene.</p>
+    <div class="auth-links">
+      <a href="/">Volver al inicio</a>
+    </div>
+  </main>
+</BaseLayout>

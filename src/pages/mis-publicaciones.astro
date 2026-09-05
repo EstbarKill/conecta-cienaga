@@ -1,0 +1,99 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getMyPosts } from '../services/posts';
+import type { PostStatus } from '../types/database';
+
+if (!Astro.locals.user) {
+  return Astro.redirect('/login?redirect=/mis-publicaciones');
+}
+
+const posts = await getMyPosts(Astro.locals.supabase, Astro.locals.user.id);
+
+const STATUS_LABELS: Record<PostStatus, string> = {
+  DRAFT: 'Borrador',
+  PENDING: 'En revisión',
+  PUBLISHED: 'Publicada',
+  REJECTED: 'Rechazada',
+  PAUSED: 'Pausada',
+  EXPIRED: 'Expirada',
+  DELETED: 'Eliminada',
+};
+
+const errorParam = Astro.url.searchParams.get('error');
+const updated = Astro.url.searchParams.get('actualizado') === '1';
+---
+
+<BaseLayout title="Mis publicaciones" noindex>
+  <main>
+    <h1>Mis publicaciones</h1>
+    <p class="subtitle">
+      <a href="/publicar">+ Publicar una nueva oportunidad</a>
+    </p>
+
+    {updated && (
+      <div class="alert alert-success" role="status">Publicación actualizada.</div>
+    )}
+    {errorParam && (
+      <div class="alert alert-error" role="alert">
+        No pudimos completar esa acción. Intenta de nuevo.
+      </div>
+    )}
+
+    {posts.length === 0 ? (
+      <p>Todavía no tienes publicaciones. <a href="/publicar">Crea la primera</a>.</p>
+    ) : (
+      <ul class="post-list">
+        {posts.map((post) => (
+          <li class="post-card">
+            <div class="post-card-header">
+              <span class={`status-badge status-${post.status.toLowerCase()}`}>
+                {STATUS_LABELS[post.status]}
+              </span>
+              <span class="post-card-date">
+                {new Date(post.createdAt).toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' })}
+              </span>
+            </div>
+
+            <h2><a href={`/oportunidad/${post.slug}`}>{post.title}</a></h2>
+            <p class="post-card-meta">{post.categoryName} · {post.municipio}</p>
+
+            {post.status === 'REJECTED' && post.rejectionReason && (
+              <p class="alert alert-error" role="alert">Motivo del rechazo: {post.rejectionReason}</p>
+            )}
+
+            <div class="post-card-actions">
+              {(post.status === 'PENDING' || post.status === 'PUBLISHED' || post.status === 'PAUSED') && (
+                <a href={`/publicar/editar/${post.id}`}>Editar</a>
+              )}
+
+              {post.status === 'PUBLISHED' && (
+                <form method="POST" action="/api/posts/status">
+                  <input type="hidden" name="postId" value={post.id} />
+                  <input type="hidden" name="action" value="PAUSED" />
+                  <button type="submit" class="btn-secondary">Pausar</button>
+                </form>
+              )}
+
+              {post.status === 'PAUSED' && (
+                <form method="POST" action="/api/posts/status">
+                  <input type="hidden" name="postId" value={post.id} />
+                  <input type="hidden" name="action" value="PENDING" />
+                  <button type="submit" class="btn-secondary">Reactivar</button>
+                </form>
+              )}
+
+              {post.status !== 'DELETED' && (
+                <form method="POST" action="/api/posts/status"
+                  onsubmit="return confirm('¿Eliminar esta publicación? Esta acción no se puede deshacer.')">
+                  <input type="hidden" name="postId" value={post.id} />
+                  <input type="hidden" name="action" value="DELETED" />
+                  <button type="submit" class="btn-danger">Eliminar</button>
+                </form>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    )}
+  </main>
+</BaseLayout>

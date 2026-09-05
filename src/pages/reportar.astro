@@ -1,0 +1,83 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { createReport } from '../services/reports';
+import type { ReportReason } from '../types/database';
+
+const postId = Astro.url.searchParams.get('post');
+
+if (!Astro.locals.user) {
+  return Astro.redirect(`/login?redirect=${encodeURIComponent(Astro.url.pathname + Astro.url.search)}`);
+}
+
+if (!postId) {
+  return Astro.redirect('/');
+}
+
+const REASON_LABELS: Record<ReportReason, string> = {
+  ESTAFA: 'Estafa',
+  CONTENIDO_FALSO: 'Contenido falso',
+  SPAM: 'Spam',
+  CONTENIDO_OFENSIVO: 'Contenido ofensivo',
+  OFERTA_SOSPECHOSA: 'Oferta sospechosa',
+  INFO_INCORRECTA: 'Información incorrecta',
+  OTRO: 'Otro',
+};
+
+let errorMessage: string | null = null;
+let showSuccess = false;
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const reason = String(formData.get('reason') ?? '') as ReportReason;
+  const description = String(formData.get('description') ?? '').trim() || null;
+
+  if (!Object.keys(REASON_LABELS).includes(reason)) {
+    errorMessage = 'Selecciona un motivo válido.';
+  } else {
+    const result = await createReport(Astro.locals.supabase, Astro.locals.user.id, postId, reason, description);
+    if (result.success) {
+      showSuccess = true;
+    } else {
+      errorMessage = result.error;
+    }
+  }
+}
+---
+
+<BaseLayout title="Reportar publicación" noindex>
+  <main>
+    <h1>Reportar publicación</h1>
+
+    {showSuccess ? (
+      <div class="alert alert-success" role="status">
+        Gracias por avisarnos. Un administrador revisará esta publicación.
+      </div>
+    ) : (
+      <>
+        <p class="subtitle">Cuéntanos qué está mal con esta publicación. Un administrador la revisará.</p>
+
+        {errorMessage && <div class="alert alert-error" role="alert">{errorMessage}</div>}
+
+        <form method="POST" id="report-form">
+          <div>
+            <label for="reason">Motivo</label>
+            <select id="reason" name="reason" required>
+              <option value="">Selecciona un motivo</option>
+              {Object.entries(REASON_LABELS).map(([value, label]) => (
+                <option value={value}>{label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label for="description">Detalles (opcional)</label>
+            <textarea id="description" name="description" rows="4" maxlength="500"
+              placeholder="Cuéntanos más si quieres."></textarea>
+          </div>
+          <button type="submit" data-loading-text="Enviando...">Enviar reporte</button>
+        </form>
+      </>
+    )}
+
+    <p class="auth-links"><a href="/explorar">← Volver a explorar</a></p>
+  </main>
+</BaseLayout>

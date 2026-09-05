@@ -1,0 +1,61 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getDashboardStats } from '../../services/admin';
+
+const stats = await getDashboardStats(Astro.locals.supabase);
+
+const STAT_CARDS = [
+  { value: stats.pendingPosts, label: 'Publicaciones pendientes', href: '/admin/moderacion', tone: 'warning' },
+  { value: stats.publishedPosts, label: 'Publicaciones activas', href: null, tone: 'success' },
+  { value: stats.pendingReports, label: 'Reportes por revisar', href: '/admin/reportes', tone: 'error' },
+  { value: stats.totalUsers, label: 'Usuarios registrados', href: '/admin/usuarios', tone: 'primary' },
+] as const;
+
+const CHART_DATA = [
+  { label: 'Publicadas', value: stats.publishedPosts, color: 'var(--color-success)' },
+  { label: 'Pendientes', value: stats.pendingPosts, color: '#c98a1e' },
+  { label: 'Pausadas', value: stats.pausedPosts, color: 'var(--color-text-muted)' },
+  { label: 'Rechazadas', value: stats.rejectedPosts, color: 'var(--color-error)' },
+] as const;
+const maxChartValue = Math.max(1, ...CHART_DATA.map((d) => d.value));
+---
+
+<AdminLayout title="Resumen" active="resumen">
+  <div class="stat-grid">
+    {STAT_CARDS.map((card) => {
+      const Tag = card.href ? 'a' : 'div';
+      return (
+        <Tag href={card.href ?? undefined} class={`stat-card stat-card-${card.tone}`}>
+          <span class="stat-number">{card.value}</span>
+          <span class="stat-label">{card.label}</span>
+        </Tag>
+      );
+    })}
+  </div>
+
+  <section class="admin-panel">
+    <h2>Publicaciones por estado</h2>
+    <div class="bar-chart">
+      {CHART_DATA.map((d) => (
+        <div class="bar-chart-row">
+          <span class="bar-chart-label">{d.label}</span>
+          <div class="bar-chart-track">
+            <div class="bar-chart-fill" style={`width:${(d.value / maxChartValue) * 100}%; background:${d.color};`}></div>
+          </div>
+          <span class="bar-chart-value">{d.value}</span>
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <section class="admin-panel">
+    <h2>Comunidad</h2>
+    <p class="field-hint">
+      {stats.totalUsers} usuarios registrados, {stats.businessUsers} de ellos como negocios.
+    </p>
+  </section>
+
+  <p class="field-hint">
+    Bienvenido al panel de administración de Conecta Ciénaga. Usa el menú de la izquierda para moderar publicaciones, revisar reportes, y gestionar categorías y usuarios.
+  </p>
+</AdminLayout>

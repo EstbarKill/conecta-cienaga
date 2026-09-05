@@ -1,0 +1,163 @@
+---
+import '../styles/global.css';
+import { ClientRouter } from 'astro:transitions';
+import Avatar from '../components/Avatar.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+  /** Ruta canónica sin dominio (ej. "/oportunidad/mi-slug"). Por defecto usa la URL actual. */
+  canonicalPath?: string;
+  /** Desactiva la indexación (usado en páginas privadas que igual quedan fuera de robots.txt, como defensa extra). */
+  noindex?: boolean;
+}
+
+const {
+  title,
+  description = 'Conecta Ciénaga — oportunidades laborales y servicios en tu comunidad.',
+  canonicalPath,
+  noindex = false,
+} = Astro.props;
+
+const siteUrl = (import.meta.env.PUBLIC_SITE_URL || 'https://conectacienaga.co').replace(/\/$/, '');
+const canonicalUrl = `${siteUrl}${canonicalPath ?? Astro.url.pathname}`;
+const pageTitle = `${title} · Conecta Ciénaga`;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalUrl} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+    <title>{pageTitle}</title>
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:site_name" content="Conecta Ciénaga" />
+    <meta property="og:locale" content="es_CO" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={description} />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <slot name="head" />
+    <ClientRouter />
+  </head>
+  <body data-authenticated={Astro.locals.user ? 'true' : 'false'}>
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a href="/" class="wordmark">Conecta Ciénaga</a>
+        <nav class="site-nav" aria-label="Navegación principal">
+          <a href="/explorar">Explorar</a>
+          {Astro.locals.user && Astro.locals.profile ? (
+            <details class="account-menu">
+              <summary class="account-menu-trigger" aria-label="Abrir menú de cuenta">
+                <Avatar name={Astro.locals.profile.fullName} url={Astro.locals.profile.avatarUrl} size={36} />
+              </summary>
+              <div class="account-menu-panel">
+                <p class="account-menu-name">{Astro.locals.profile.fullName}</p>
+                <p class="account-menu-email">{Astro.locals.user.email}</p>
+                <a href="/perfil">Mi perfil</a>
+                <a href="/mis-publicaciones">Mis publicaciones</a>
+                <a href="/publicar">Publicar oportunidad</a>
+                {Astro.locals.profile.role === 'ADMIN' && <a href="/admin">Panel admin</a>}
+                <form method="POST" action="/api/auth/logout">
+                  <button type="submit" class="account-menu-logout">Cerrar sesión</button>
+                </form>
+              </div>
+            </details>
+          ) : (
+            <a href="/login">Iniciar sesión</a>
+          )}
+        </nav>
+      </div>
+    </header>
+    <slot />
+    <footer class="site-footer">
+      <div class="site-footer-inner">
+        <p>Conecta Ciénaga — hecho para la comunidad de Ciénaga, Magdalena.</p>
+        <nav aria-label="Enlaces legales">
+          <a href="/politica-privacidad">Política de privacidad</a>
+          <a href="/terminos">Términos y condiciones</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+
+  <script>
+    // Feedback de "cargando" centralizado para todos los formularios
+    // del sitio (evita repetir el mismo script en cada página). Usa
+    // delegación de eventos sobre `document`, así que sobrevive a las
+    // transiciones de página de Astro sin necesidad de reengancharse.
+    document.addEventListener('submit', (event) => {
+      const form = event.target as HTMLFormElement;
+      if (!(form instanceof HTMLFormElement)) return;
+      if (event.defaultPrevented) return; // ej. el usuario canceló un confirm()
+
+      const button = form.querySelector('button[type="submit"]') as HTMLButtonElement | null;
+      if (!button || button.disabled) return;
+
+      const loadingText = button.dataset.loadingText;
+      button.disabled = true;
+      if (loadingText) button.textContent = loadingText;
+    });
+
+    // Menú de cuenta (avatar): cerrar al hacer clic afuera o con Escape.
+    // El propio <details> ya maneja abrir/cerrar al hacer clic/tocar.
+    document.addEventListener('click', (event) => {
+      document.querySelectorAll('details.account-menu[open]').forEach((menu) => {
+        if (!menu.contains(event.target as Node)) menu.removeAttribute('open');
+      });
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        document.querySelectorAll('details.account-menu[open]').forEach((menu) => menu.removeAttribute('open'));
+      }
+    });
+
+    // Cierre de sesión por inactividad prolongada. Se reinicia el
+    // temporizador con cualquier actividad del usuario, y también en
+    // cada transición de página (astro:page-load), ya que navegar
+    // también cuenta como actividad. Los listeners de actividad solo
+    // se registran una vez (guardia `listenersAttached`) para no
+    // acumularse en cada transición.
+    const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutos
+    let idleTimer: ReturnType<typeof setTimeout> | undefined;
+    let idleListenersAttached = false;
+
+    function resetIdleTimer() {
+      if (document.body.dataset.authenticated !== 'true') return;
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(async () => {
+        try {
+          await fetch('/api/auth/logout', { method: 'POST' });
+        } finally {
+          window.location.href = '/login?motivo=inactividad';
+        }
+      }, IDLE_TIMEOUT_MS);
+    }
+
+    function initIdleTimer() {
+      resetIdleTimer();
+      if (idleListenersAttached) return;
+      idleListenersAttached = true;
+      ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach((evt) => {
+        document.addEventListener(evt, resetIdleTimer, { passive: true });
+      });
+    }
+
+    document.addEventListener('astro:page-load', initIdleTimer);
+  </script>
+</html>

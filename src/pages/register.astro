@@ -1,0 +1,91 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { signUp } from '../services/auth';
+
+let errorMessage: string | null = null;
+let showSuccess = false;
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const fullName = String(formData.get('fullName') ?? '').trim();
+  const email = String(formData.get('email') ?? '').trim();
+  const password = String(formData.get('password') ?? '');
+  const passwordConfirm = String(formData.get('passwordConfirm') ?? '');
+  const accountTypeRaw = String(formData.get('accountType') ?? 'USER');
+  const accountType = accountTypeRaw === 'BUSINESS' ? 'BUSINESS' : 'USER';
+
+  if (!fullName || !email || !password) {
+    errorMessage = 'Completa todos los campos.';
+  } else if (password.length < 8) {
+    errorMessage = 'La contraseña debe tener al menos 8 caracteres.';
+  } else if (password !== passwordConfirm) {
+    errorMessage = 'Las contraseñas no coinciden.';
+  } else {
+    const result = await signUp(Astro.locals.supabase, email, password, fullName, accountType);
+    if (result.success) {
+      showSuccess = true;
+    } else {
+      errorMessage = result.error;
+    }
+  }
+}
+---
+
+<BaseLayout title="Crear cuenta" noindex>
+  <main>
+    <h1>Crear cuenta</h1>
+    <p class="subtitle">Regístrate gratis para publicar oportunidades o servicios.</p>
+
+    {showSuccess ? (
+      <div class="alert alert-success" role="status">
+        ¡Listo! Te enviamos un correo de confirmación. Revisa tu bandeja de entrada (y spam) para activar tu cuenta.
+      </div>
+    ) : (
+      <>
+        {errorMessage && (
+          <div class="alert alert-error" role="alert">
+            {errorMessage}
+          </div>
+        )}
+
+        <form method="POST" id="register-form">
+          <div>
+            <label for="fullName">Nombre completo</label>
+            <input type="text" id="fullName" name="fullName" required autocomplete="name" />
+          </div>
+
+          <fieldset>
+            <legend>¿Cómo vas a usar Conecta Ciénaga?</legend>
+            <div class="radio-option">
+              <input type="radio" id="accountTypeUser" name="accountType" value="USER" checked />
+              <label for="accountTypeUser">Soy una persona (busco empleo u ofrezco un servicio)</label>
+            </div>
+            <div class="radio-option">
+              <input type="radio" id="accountTypeBusiness" name="accountType" value="BUSINESS" />
+              <label for="accountTypeBusiness">Soy un negocio o empresa (busco contratar)</label>
+            </div>
+          </fieldset>
+
+          <div>
+            <label for="email">Correo electrónico</label>
+            <input type="email" id="email" name="email" required autocomplete="email" />
+          </div>
+          <div>
+            <label for="password">Contraseña</label>
+            <input type="password" id="password" name="password" required minlength="8" autocomplete="new-password" />
+            <p class="field-hint">Mínimo 8 caracteres.</p>
+          </div>
+          <div>
+            <label for="passwordConfirm">Confirmar contraseña</label>
+            <input type="password" id="passwordConfirm" name="passwordConfirm" required minlength="8" autocomplete="new-password" />
+          </div>
+          <button type="submit" data-loading-text="Creando cuenta...">Crear cuenta</button>
+        </form>
+
+        <div class="auth-links">
+          <a href="/login">¿Ya tienes cuenta? Inicia sesión</a>
+        </div>
+      </>
+    )}
+  </main>
+</BaseLayout>

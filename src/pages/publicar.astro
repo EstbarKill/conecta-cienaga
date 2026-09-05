@@ -1,0 +1,158 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { createPost } from '../services/posts';
+import { getActiveCategories, getLocations } from '../services/catalog';
+import type { PostType } from '../types/database';
+
+// Esta ruta ya está protegida por el middleware (requiere sesión),
+// pero Astro.locals.user puede ser null en teoría si algo cambia esa
+// lista en el futuro — nunca asumimos que llegar aquí implica sesión
+// válida sin comprobarlo.
+if (!Astro.locals.user) {
+  return Astro.redirect('/login?redirect=/publicar');
+}
+
+const categories = await getActiveCategories(Astro.locals.supabase);
+const locations = await getLocations(Astro.locals.supabase);
+
+const TYPE_LABELS: Record<PostType, string> = {
+  EMPLOYMENT: 'Empleo (busco a alguien)',
+  SERVICE: 'Servicio (ofrezco mi servicio)',
+  JOB_SEEKER: 'Busco empleo',
+};
+
+let errorMessage: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const type = String(formData.get('type') ?? '') as PostType;
+  const categoryId = Number(formData.get('categoryId'));
+  const locationId = Number(formData.get('locationId'));
+  const title = String(formData.get('title') ?? '').trim();
+  const description = String(formData.get('description') ?? '').trim();
+  const address = String(formData.get('address') ?? '').trim() || null;
+  const contactPhone = String(formData.get('contactPhone') ?? '').trim() || null;
+  const contactWhatsapp = String(formData.get('contactWhatsapp') ?? '').trim() || null;
+  const contactEmail = String(formData.get('contactEmail') ?? '').trim() || null;
+
+  if (!['EMPLOYMENT', 'SERVICE', 'JOB_SEEKER'].includes(type)) {
+    errorMessage = 'Selecciona un tipo de publicación válido.';
+  } else if (!categoryId || !locationId) {
+    errorMessage = 'Selecciona categoría y ubicación.';
+  } else if (title.length < 5 || title.length > 120) {
+    errorMessage = 'El título debe tener entre 5 y 120 caracteres.';
+  } else if (description.length < 20 || description.length > 3000) {
+    errorMessage = 'La descripción debe tener entre 20 y 3000 caracteres.';
+  } else if (address && address.length > 300) {
+    errorMessage = 'La dirección es demasiado larga (máximo 300 caracteres).';
+  } else if (!contactPhone && !contactWhatsapp && !contactEmail) {
+    errorMessage = 'Agrega al menos un medio de contacto (teléfono, WhatsApp o correo).';
+  } else {
+    const result = await createPost(Astro.locals.supabase, Astro.locals.user.id, {
+      type,
+      categoryId,
+      locationId,
+      title,
+      description,
+      address,
+      contactPhone,
+      contactWhatsapp,
+      contactEmail,
+    });
+
+    if (result.success) {
+      return Astro.redirect(`/oportunidad/${result.data.slug}?nuevo=1`);
+    }
+    errorMessage = result.error;
+  }
+}
+---
+
+<BaseLayout title="Publicar oportunidad" noindex>
+  <main>
+    <h1>Publicar oportunidad</h1>
+    <p class="subtitle">
+      Tu publicación se revisará antes de aparecer públicamente. Normalmente toma menos de 24 horas.
+    </p>
+
+    {errorMessage && (
+      <div class="alert alert-error" role="alert">
+        {errorMessage}
+      </div>
+    )}
+
+    {categories.length === 0 && (
+      <div class="alert alert-error" role="alert">
+        No hay categorías disponibles en este momento. Contacta al administrador.
+      </div>
+    )}
+
+    <form method="POST" id="publish-form">
+      <div>
+        <label for="type">Tipo de publicación</label>
+        <select id="type" name="type" required>
+          <option value="">Selecciona una opción</option>
+          {Object.entries(TYPE_LABELS).map(([value, label]) => (
+            <option value={value}>{label}</option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label for="categoryId">Categoría</label>
+        <select id="categoryId" name="categoryId" required>
+          <option value="">Selecciona una categoría</option>
+          {categories.map((c) => (
+            <option value={c.id}>{c.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label for="locationId">Municipio</label>
+        <select id="locationId" name="locationId" required>
+          {locations.map((l) => (
+            <option value={l.id}>{l.municipio}, {l.departamento}</option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label for="title">Título</label>
+        <input type="text" id="title" name="title" required minlength="5" maxlength="120"
+          placeholder="Ej: Se busca auxiliar de cocina" />
+      </div>
+
+      <div>
+        <label for="description">Descripción</label>
+        <textarea id="description" name="description" required minlength="20" maxlength="3000" rows="6"
+          placeholder="Describe la oportunidad: qué se necesita, horario, requisitos, condiciones..."></textarea>
+      </div>
+
+      <div>
+        <label for="address">Dirección específica (opcional)</label>
+        <textarea id="address" name="address" maxlength="300" rows="2"
+          placeholder="Ej: Calle 12 #5-30, barrio Once de Noviembre, cerca al parque"></textarea>
+        <p class="field-hint">Si tu negocio o servicio tiene un local físico, agrega la dirección para que te encuentren fácil.</p>
+      </div>
+
+      <fieldset>
+        <legend>Contacto (agrega al menos uno)</legend>
+        <div>
+          <label for="contactWhatsapp">WhatsApp</label>
+          <input type="text" id="contactWhatsapp" name="contactWhatsapp" placeholder="300 123 4567" />
+        </div>
+        <div>
+          <label for="contactPhone">Teléfono</label>
+          <input type="text" id="contactPhone" name="contactPhone" placeholder="300 123 4567" />
+        </div>
+        <div>
+          <label for="contactEmail">Correo electrónico</label>
+          <input type="email" id="contactEmail" name="contactEmail" placeholder="correo@ejemplo.com" />
+        </div>
+      </fieldset>
+
+      <button type="submit" data-loading-text="Publicando...">Publicar oportunidad</button>
+    </form>
+  </main>
+</BaseLayout>
