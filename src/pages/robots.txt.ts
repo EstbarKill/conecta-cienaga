@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 
 export const GET: APIRoute = () => {
-  const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://conectacienaga.co';
+  const siteUrl = import.meta.env.SITE_URL || 'https://conectacienaga.co';
 
   const body = `User-agent: *
 Allow: /

@@ -18,12 +18,12 @@ import type { AstroCookies } from 'astro';
  * requests de distintos usuarios).
  */
 export function createSupabaseServerClient(request: Request, cookies: AstroCookies) {
-  const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseUrl = import.meta.env.SUPABASE_URL;
+  const supabaseAnonKey = import.meta.env.SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error(
-      'Faltan variables de entorno de Supabase (PUBLIC_SUPABASE_URL / PUBLIC_SUPABASE_ANON_KEY).'
+      'Faltan variables de entorno de Supabase (SUPABASE_URL / SUPABASE_ANON_KEY).'
     );
   }
 

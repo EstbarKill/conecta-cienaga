@@ -8,16 +8,16 @@ import { createClient } from '@supabase/supabase-js';
  * de `services/`. Nunca usar aquí la Service Role Key (ver
  * supabase.admin.ts para los pocos casos server-only que la requieren).
  *
- * PUBLIC_SUPABASE_URL y PUBLIC_SUPABASE_ANON_KEY son seguras de exponer
+ * SUPABASE_URL y SUPABASE_ANON_KEY son seguras de exponer
  * al navegador: la seguridad real la da RLS en la base de datos, no el
  * secreto de estas variables.
  */
-const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
-    'Faltan variables de entorno de Supabase (PUBLIC_SUPABASE_URL / PUBLIC_SUPABASE_ANON_KEY). ' +
+    'Faltan variables de entorno de Supabase (SUPABASE_URL / SUPABASE_ANON_KEY). ' +
       'Revisa tu archivo .env contra .env.example.'
   );
 }

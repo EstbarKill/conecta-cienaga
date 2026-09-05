@@ -3,7 +3,7 @@ import type { APIRoute } from 'astro';
 const STATIC_PATHS = ['/', '/explorar', '/login', '/register', '/politica-privacidad', '/terminos'];
 
 export const GET: APIRoute = async ({ locals }) => {
-  const siteUrl = (import.meta.env.PUBLIC_SITE_URL || 'https://conectacienaga.co').replace(/\/$/, '');
+  const siteUrl = (import.meta.env.SITE_URL || 'https://conectacienaga.co').replace(/\/$/, '');
 
   const { data: posts } = await locals.supabase
     .from('posts')
