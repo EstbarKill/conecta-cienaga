@@ -125,6 +125,10 @@ const businessProfile = profile.role === 'BUSINESS' ? await getMyBusinessProfile
           </div>
           <button type="submit" data-loading-text="Guardando...">{businessProfile ? 'Actualizar negocio' : 'Crear perfil de negocio'}</button>
         </form>
+
+        {businessProfile && (
+          <p class="field-hint"><a href={`/empresa/${businessProfile.slug}`} target="_blank" rel="noopener">Ver mi página pública →</a></p>
+        )}
       </>
     )}
 

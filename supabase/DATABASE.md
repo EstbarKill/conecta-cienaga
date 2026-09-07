@@ -99,7 +99,31 @@ supabase db push
 
 Esto aplica las 6 migraciones en orden. El seed **no** se aplica con `db push` (solo corre automáticamente en `supabase db reset`, que es destructivo y solo debe usarse en local). Para producción, aplica `supabase/seed.sql` **una sola vez**, manualmente, desde el SQL Editor del dashboard de Supabase.
 
-## Generar tipos TypeScript oficiales (recomendado, próximo paso)
+## Notificaciones por correo (Database Webhook + Edge Function)
+
+Cuando una publicación pasa a `PUBLISHED` o `REJECTED`, se envía un correo al autor. Esto **no** se configura vía migración a propósito: guardar la API key de Resend o el secreto del webhook en un archivo SQL versionado en Git violaría la sección 14 del estándar (nunca secretos en el código fuente). En su lugar:
+
+1. Crea una cuenta en [resend.com](https://resend.com) (tiene plan gratuito) y verifica un dominio de envío (o usa su modo de prueba inicialmente).
+2. Copia tu API key de Resend.
+3. Genera un secreto aleatorio cualquiera para `WEBHOOK_SECRET` (por ejemplo, con `openssl rand -hex 32`).
+4. Despliega la función:
+   ```sh
+   npx supabase functions deploy notify-post-status
+   ```
+5. Configura los secretos de la función (esto NO va a Git, vive solo en Supabase):
+   ```sh
+   npx supabase secrets set RESEND_API_KEY=re_xxxxx WEBHOOK_SECRET=tu_secreto_aleatorio FROM_EMAIL="Conecta Ciénaga <noreply@tudominio.com>" PUBLIC_SITE_URL=https://tudominio.com
+   ```
+   (`SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` los inyecta Supabase automáticamente en toda función desplegada — no hace falta configurarlos.)
+6. En el Dashboard: **Database → Webhooks → Create a new webhook**
+   - Tabla: `posts` — Evento: `Update`
+   - Tipo: `Supabase Edge Functions` → selecciona `notify-post-status`
+   - En **HTTP Headers**, agrega: `x-webhook-secret` = el mismo valor que pusiste en `WEBHOOK_SECRET`
+7. Prueba aprobando/rechazando una publicación desde `/admin/moderacion` y confirma que llega el correo.
+
+⚠️ **La función (`supabase/functions/notify-post-status/index.ts`) no se pudo ejecutar en el entorno donde se generó** — no había Deno disponible ni acceso de red a `esm.sh`. Se validó exhaustivamente la lógica (payload, condiciones, construcción del correo, manejo de errores) con `deno check` sustituyendo temporalmente el import remoto por un stub — 0 errores de tipos — pero el import real a `esm.sh` y la llamada real a Resend no se probaron end-to-end. Pruébalo en tu proyecto real antes de confiar en él para producción.
+
+
 
 Una vez migrado el proyecto remoto:
 

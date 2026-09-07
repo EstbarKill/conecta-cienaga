@@ -12,13 +12,15 @@ declare global {
       user: User | null;
       /** Perfil de dominio (rol, nombre, etc.), o null si es visitante o el perfil no existe. */
       profile: Profile | null;
+      /** Notificaciones sin leer del usuario actual (0 si es visitante). */
+      unreadNotifications: number;
     }
   }
 
   interface ImportMetaEnv {
-    readonly SUPABASE_URL: string;
-    readonly SUPABASE_ANON_KEY: string;
-    readonly SITE_URL: string;
+    readonly PUBLIC_SUPABASE_URL: string;
+    readonly PUBLIC_SUPABASE_ANON_KEY: string;
+    readonly PUBLIC_SITE_URL: string;
     readonly SUPABASE_URL: string;
     readonly SUPABASE_SERVICE_ROLE_KEY: string;
   }

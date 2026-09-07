@@ -356,6 +356,30 @@ export async function searchPosts(
 }
 
 /**
+ * Publicaciones activas (PUBLISHED, no expiradas) de un autor
+ * específico. Se usa en el perfil público de negocio.
+ */
+export async function getPublishedPostsByAuthor(
+  supabase: SupabaseClient,
+  authorId: string
+): Promise<PostWithRelations[]> {
+  const { data, error } = await supabase
+    .from('posts')
+    .select(PUBLIC_POST_COLUMNS)
+    .eq('author_id', authorId)
+    .eq('status', 'PUBLISHED')
+    .gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('[posts] getPublishedPostsByAuthor', error.message);
+    return [];
+  }
+
+  return asRawRows(data).map((row) => mapRow(row, false));
+}
+
+/**
  * Publicaciones recientes para la home. Caso especial de búsqueda sin
  * filtros con un tamaño de página pequeño — se mantiene como función
  * separada para no acoplar la home a la paginación de /explorar.

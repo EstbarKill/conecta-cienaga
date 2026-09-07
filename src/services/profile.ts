@@ -95,6 +95,30 @@ export async function uploadAvatar(
   return { success: true, data: { url: publicUrl } };
 }
 
+/**
+ * Sube el avatar inicial durante el registro, ANTES de que exista una
+ * sesión del usuario (Supabase exige confirmar el correo primero, así
+ * que no hay RLS-friendly session todavía). Usa el cliente con
+ * Service Role Key (bypassa RLS) — es el único caso legítimo del
+ * proyecto para esto fuera de las funciones administrativas.
+ *
+ * Importación dinámica a propósito: si falta
+ * SUPABASE_SERVICE_ROLE_KEY en el entorno, el error queda CONTENIDO
+ * aquí — el registro en sí (lo esencial) nunca debe romperse por
+ * culpa de esta función opcional. Ver supabase.admin.ts.
+ */
+export async function adminSetInitialAvatar(userId: string, file: File): Promise<void> {
+  try {
+    const { supabaseAdmin } = await import('../config/supabase.admin');
+    const result = await uploadAvatar(supabaseAdmin, userId, file);
+    if (!result.success) {
+      console.error('[profile] adminSetInitialAvatar', result.error);
+    }
+  } catch (err) {
+    console.error('[profile] adminSetInitialAvatar — cliente admin no disponible, se omite el avatar', err);
+  }
+}
+
 interface RawBusinessRow {
   id: string;
   profile_id: string;
@@ -176,4 +200,26 @@ export async function upsertBusinessProfile(
   }
 
   return { success: true, data: { slug } };
+}
+
+/**
+ * Perfil público de negocio por slug, con sus publicaciones activas
+ * (PUBLISHED, no expiradas). Página pública — no requiere sesión.
+ */
+export async function getBusinessProfileBySlug(
+  supabase: SupabaseClient,
+  slug: string
+): Promise<BusinessProfile | null> {
+  const { data, error } = await supabase
+    .from('business_profiles')
+    .select('id, profile_id, business_name, slug, description, logo_url, created_at')
+    .eq('slug', slug)
+    .maybeSingle();
+
+  if (error || !data) {
+    if (error) console.error('[profile] getBusinessProfileBySlug', error.message);
+    return null;
+  }
+
+  return mapBusinessRow(data as unknown as RawBusinessRow);
 }

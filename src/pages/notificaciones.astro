@@ -1,0 +1,47 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getMyNotifications, markAllAsRead } from '../services/notifications';
+
+if (!Astro.locals.user) {
+  return Astro.redirect('/login?redirect=/notificaciones');
+}
+
+// Se traen ANTES de marcar como leídas, para poder resaltar en esta
+// misma visita cuáles llegaron nuevas. El contador del header (que
+// lee en el próximo request) ya reflejará 0 después de este marcado.
+const notifications = await getMyNotifications(Astro.locals.supabase, Astro.locals.user.id);
+const unreadIds = new Set(notifications.filter((n) => !n.readAt).map((n) => n.id));
+
+if (unreadIds.size > 0) {
+  await markAllAsRead(Astro.locals.supabase, Astro.locals.user.id);
+}
+
+const TYPE_ICON: Record<string, string> = {
+  POST_PUBLISHED: '✅',
+  POST_REJECTED: '⚠️',
+};
+---
+
+<BaseLayout title="Notificaciones" noindex>
+  <main>
+    <h1>Notificaciones</h1>
+
+    {notifications.length === 0 ? (
+      <p class="empty-state">No tienes notificaciones todavía.</p>
+    ) : (
+      <ul class="notification-list">
+        {notifications.map((n) => (
+          <li class:list={['notification-item', { 'notification-item-unread': unreadIds.has(n.id) }]}>
+            <span class="notification-icon">{TYPE_ICON[n.type] ?? '🔔'}</span>
+            <div>
+              <a href={n.link}>{n.message}</a>
+              <p class="notification-date">
+                {new Date(n.createdAt).toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    )}
+  </main>
+</BaseLayout>

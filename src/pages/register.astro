@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { signUp } from '../services/auth';
+import { adminSetInitialAvatar } from '../services/profile';
 
 let errorMessage: string | null = null;
 let showSuccess = false;
@@ -13,6 +14,7 @@ if (Astro.request.method === 'POST') {
   const passwordConfirm = String(formData.get('passwordConfirm') ?? '');
   const accountTypeRaw = String(formData.get('accountType') ?? 'USER');
   const accountType = accountTypeRaw === 'BUSINESS' ? 'BUSINESS' : 'USER';
+  const avatarFile = formData.get('avatar');
 
   if (!fullName || !email || !password) {
     errorMessage = 'Completa todos los campos.';
@@ -23,6 +25,13 @@ if (Astro.request.method === 'POST') {
   } else {
     const result = await signUp(Astro.locals.supabase, email, password, fullName, accountType);
     if (result.success) {
+      // La foto es opcional y nunca debe bloquear el registro: si
+      // falla (o no se configuró la Service Role Key en el entorno),
+      // simplemente se omite — el usuario puede subirla después desde
+      // /perfil. Ver el manejo de errores dentro de la función.
+      if (avatarFile instanceof File && avatarFile.size > 0) {
+        await adminSetInitialAvatar(result.userId, avatarFile);
+      }
       showSuccess = true;
     } else {
       errorMessage = result.error;
@@ -48,10 +57,16 @@ if (Astro.request.method === 'POST') {
           </div>
         )}
 
-        <form method="POST" id="register-form">
+        <form method="POST" id="register-form" enctype="multipart/form-data">
           <div>
             <label for="fullName">Nombre completo</label>
             <input type="text" id="fullName" name="fullName" required autocomplete="name" />
+          </div>
+
+          <div>
+            <label for="avatar">Foto de perfil (opcional)</label>
+            <input type="file" id="avatar" name="avatar" accept="image/jpeg,image/png,image/webp" />
+            <p class="field-hint">JPG, PNG o WEBP, máximo 2 MB. Puedes agregarla después si prefieres.</p>
           </div>
 
           <fieldset>

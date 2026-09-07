@@ -338,6 +338,114 @@ a {
   background: var(--color-error-bg);
 }
 
+/* ── Contador de notificaciones sobre el avatar ──────────────────── */
+
+.avatar-badge-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.avatar-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  background: var(--color-error);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--color-surface);
+  padding: 0 3px;
+  line-height: 1;
+}
+
+.account-menu-notifications {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.account-menu-badge {
+  background: var(--color-error);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 999px;
+  min-width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.35rem;
+}
+
+/* ── Página /notificaciones ───────────────────────────────────────── */
+
+.notification-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.notification-item {
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.notification-item-unread {
+  background: #eef7f4;
+  border-color: var(--color-primary);
+}
+
+.notification-icon {
+  font-size: 1.3rem;
+  line-height: 1;
+  margin-top: 0.1rem;
+}
+
+.notification-item a {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.notification-item a:hover {
+  text-decoration: underline;
+}
+
+.notification-date {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+/* ── Perfil público de negocio ────────────────────────────────────── */
+
+.business-header {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.business-logo {
+  border-radius: 12px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--color-bg);
+}
+
 @media (max-width: 480px) {
   .account-menu-panel {
     right: -0.5rem;
@@ -437,6 +545,24 @@ legend {
 
 .report-link a {
   color: var(--color-text-muted);
+}
+
+.whatsapp-share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+  padding: 0.6rem 1.1rem;
+  background: #25d366;
+  color: #fff;
+  border-radius: var(--radius);
+  font-weight: 600;
+  font-size: 0.92rem;
+  text-decoration: none;
+}
+
+.whatsapp-share-btn:hover {
+  background: #1ebe57;
 }
 
 /* ── Contenido tipo prosa (páginas legales) ──────────────────────── */
@@ -704,13 +830,17 @@ a.stat-card:hover {
   align-items: center;
 }
 
+/* admin/reportes.astro sigue usando un <form> propio por acción; la
+   nueva cola de moderación (admin/moderacion.astro) usa un único
+   formulario compartido con botones nombrados, así que no anida
+   <form>, pero esta regla sigue siendo necesaria para reportes.astro. */
 .admin-actions form {
   display: flex;
   gap: 0.5rem;
   align-items: center;
 }
 
-.admin-reject-form input[type='text'] {
+.admin-reject-input {
   min-height: 40px;
   width: 220px;
 }
@@ -726,6 +856,78 @@ a.stat-card:hover {
   background: var(--color-success);
   color: #fff;
   font-family: var(--font-body);
+}
+
+/* ── Bulk actions y señales de moderación (moderacion.astro) ─────── */
+
+.bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.25rem;
+  position: sticky;
+  top: 0.75rem;
+  z-index: 10;
+}
+
+.bulk-select-all {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.bulk-select-all input {
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  accent-color: var(--color-primary);
+}
+
+.bulk-reason-input {
+  min-height: 40px;
+  flex: 1;
+  min-width: 180px;
+}
+
+.admin-checkbox {
+  display: inline-flex;
+  margin-right: 0.25rem;
+}
+
+.admin-checkbox input {
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  accent-color: var(--color-primary);
+}
+
+.admin-post-card-flagged {
+  border-color: #c98a1e;
+  border-width: 2px;
+}
+
+.moderation-flags {
+  background: #fdf1dc;
+  border: 1px solid #c98a1e;
+  border-radius: var(--radius);
+  padding: 0.6rem 0.85rem;
+  margin: 0.5rem 0;
+  font-size: 0.85rem;
+  color: #7a5a10;
+}
+
+.moderation-flags ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
 }
 
 .admin-inline-form {

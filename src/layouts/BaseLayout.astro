@@ -64,11 +64,22 @@ const pageTitle = `${title} · Conecta Ciénaga`;
           {Astro.locals.user && Astro.locals.profile ? (
             <details class="account-menu">
               <summary class="account-menu-trigger" aria-label="Abrir menú de cuenta">
-                <Avatar name={Astro.locals.profile.fullName} url={Astro.locals.profile.avatarUrl} size={36} />
+                <span class="avatar-badge-wrap">
+                  <Avatar name={Astro.locals.profile.fullName} url={Astro.locals.profile.avatarUrl} size={36} />
+                  {Astro.locals.unreadNotifications > 0 && (
+                    <span class="avatar-badge">{Astro.locals.unreadNotifications > 9 ? '9+' : Astro.locals.unreadNotifications}</span>
+                  )}
+                </span>
               </summary>
               <div class="account-menu-panel">
                 <p class="account-menu-name">{Astro.locals.profile.fullName}</p>
                 <p class="account-menu-email">{Astro.locals.user.email}</p>
+                <a href="/notificaciones" class="account-menu-notifications">
+                  Notificaciones
+                  {Astro.locals.unreadNotifications > 0 && (
+                    <span class="account-menu-badge">{Astro.locals.unreadNotifications}</span>
+                  )}
+                </a>
                 <a href="/perfil">Mi perfil</a>
                 <a href="/mis-publicaciones">Mis publicaciones</a>
                 <a href="/publicar">Publicar oportunidad</a>
@@ -106,12 +117,23 @@ const pageTitle = `${title} · Conecta Ciénaga`;
       if (!(form instanceof HTMLFormElement)) return;
       if (event.defaultPrevented) return; // ej. el usuario canceló un confirm()
 
-      const button = form.querySelector('button[type="submit"]') as HTMLButtonElement | null;
+      // event.submitter es el botón real que disparó el envío — con
+      // varios botones de envío en un mismo formulario (ej. la cola de
+      // moderación con acciones individuales + masivas), no basta con
+      // tomar "el primer botón" del formulario.
+      const button = (event as SubmitEvent).submitter as HTMLButtonElement | null;
       if (!button || button.disabled) return;
 
       const loadingText = button.dataset.loadingText;
-      button.disabled = true;
-      if (loadingText) button.textContent = loadingText;
+      // Se pospone al siguiente tick: deshabilitar el botón de forma
+      // síncrona aquí podría excluir su name=value del envío del
+      // formulario en algunos navegadores (justo el dato que dice qué
+      // botón se presionó — crítico cuando hay varios botones de
+      // envío en un mismo formulario).
+      setTimeout(() => {
+        button.disabled = true;
+        if (loadingText) button.textContent = loadingText;
+      }, 0);
     });
 
     // Menú de cuenta (avatar): cerrar al hacer clic afuera o con Escape.
@@ -125,6 +147,23 @@ const pageTitle = `${title} · Conecta Ciénaga`;
       if (event.key === 'Escape') {
         document.querySelectorAll('details.account-menu[open]').forEach((menu) => menu.removeAttribute('open'));
       }
+    });
+
+    // "Seleccionar todas": cualquier checkbox con data-select-all-target
+    // marca/desmarca todos los checkboxes de ese mismo `name` dentro del
+    // mismo formulario. Progressive enhancement genérico — no depende
+    // de una página en particular (hoy lo usa /admin/moderacion).
+    document.addEventListener('change', (event) => {
+      const target = event.target as HTMLInputElement;
+      if (!(target instanceof HTMLInputElement) || !target.dataset.selectAllTarget) return;
+
+      const form = target.closest('form');
+      if (!form) return;
+
+      const targetName = target.dataset.selectAllTarget;
+      form.querySelectorAll<HTMLInputElement>(`input[name="${targetName}"]`).forEach((checkbox) => {
+        checkbox.checked = target.checked;
+      });
     });
 
     // Cierre de sesión por inactividad prolongada. Se reinicia el

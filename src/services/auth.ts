@@ -5,6 +5,10 @@ export type AuthResult =
   | { success: true }
   | { success: false; error: string };
 
+export type SignUpResult =
+  | { success: true; userId: string }
+  | { success: false; error: string };
+
 /**
  * Inicia sesión con email/password usando el cliente ligado a la
  * request actual (server client) — así la sesión resultante se
@@ -33,14 +37,15 @@ export async function signUp(
   password: string,
   fullName: string,
   accountType: 'USER' | 'BUSINESS'
-): Promise<AuthResult> {
-  const { error } = await supabase.auth.signUp({
+): Promise<SignUpResult> {
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: { data: { full_name: fullName, account_type: accountType } },
   });
   if (error) return { success: false, error: mapAuthError(error) };
-  return { success: true };
+  if (!data.user) return { success: false, error: mapAuthError(null) };
+  return { success: true, userId: data.user.id };
 }
 
 /**

@@ -1,12 +1,13 @@
 import { defineMiddleware } from 'astro:middleware';
 import { createSupabaseServerClient } from './config/supabase.server';
+import { getUnreadCount } from './services/notifications';
 import type { Profile } from './types/database';
 
 /**
  * Rutas que requieren sesión iniciada. Si no hay sesión, se redirige a
  * /login con un parámetro `redirect` para volver tras autenticarse.
  */
-const PROTECTED_ROUTES = ['/publicar', '/mis-publicaciones', '/perfil'];
+const PROTECTED_ROUTES = ['/publicar', '/mis-publicaciones', '/perfil', '/notificaciones'];
 
 /**
  * Rutas que además requieren role = ADMIN. Se verifica el perfil real
@@ -31,6 +32,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   locals.supabase = supabase;
   locals.user = user ?? null;
   locals.profile = null;
+  locals.unreadNotifications = 0;
 
   if (user) {
     const { data: profile, error: profileError } = await supabase
@@ -56,6 +58,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
         createdAt: profile.created_at,
         updatedAt: profile.updated_at,
       } satisfies Profile;
+
+      locals.unreadNotifications = await getUnreadCount(supabase, user.id);
     }
   }
 

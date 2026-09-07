@@ -1,0 +1,55 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getBusinessProfileBySlug } from '../../services/profile';
+import { getPublishedPostsByAuthor } from '../../services/posts';
+import type { PostType } from '../../types/database';
+
+const { slug } = Astro.params;
+if (!slug) return Astro.redirect('/404');
+
+const business = await getBusinessProfileBySlug(Astro.locals.supabase, slug);
+if (!business) {
+  return new Response(null, { status: 404 });
+}
+
+const posts = await getPublishedPostsByAuthor(Astro.locals.supabase, business.profileId);
+
+const TYPE_LABELS: Record<PostType, string> = {
+  EMPLOYMENT: 'Empleo',
+  SERVICE: 'Servicio',
+  JOB_SEEKER: 'Busca empleo',
+};
+---
+
+<BaseLayout title={business.businessName} description={business.description?.slice(0, 160) ?? `Publicaciones de ${business.businessName} en Conecta Ciénaga.`}>
+  <main class="wide">
+    <section class="business-header">
+      <img
+        src={business.logoUrl ?? '/favicon.svg'}
+        alt=""
+        class="business-logo"
+        width="64"
+        height="64"
+      />
+      <div>
+        <h1>{business.businessName}</h1>
+        {business.description && <p class="hero-subtitle">{business.description}</p>}
+      </div>
+    </section>
+
+    <h2>Publicaciones activas</h2>
+    {posts.length === 0 ? (
+      <p class="empty-state">Este negocio no tiene publicaciones activas en este momento.</p>
+    ) : (
+      <ul class="post-grid">
+        {posts.map((post) => (
+          <li class="post-card">
+            <span class="type-badge">{TYPE_LABELS[post.type]}</span>
+            <h3><a href={`/oportunidad/${post.slug}`}>{post.title}</a></h3>
+            <p class="post-card-meta">{post.categoryName} · {post.municipio}</p>
+          </li>
+        ))}
+      </ul>
+    )}
+  </main>
+</BaseLayout>

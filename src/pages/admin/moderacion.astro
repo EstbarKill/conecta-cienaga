@@ -1,25 +1,52 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { getPendingPosts, reviewPost } from '../../services/admin';
+import { getModerationFlags } from '../../utils/moderationFlags';
 import type { PostType } from '../../types/database';
 
 let actionError: string | null = null;
+let successCount = 0;
 
 if (Astro.request.method === 'POST') {
   const formData = await Astro.request.formData();
-  const postId = String(formData.get('postId') ?? '');
-  const action = String(formData.get('action') ?? '');
-  const reason = String(formData.get('reason') ?? '').trim() || null;
 
-  if (action === 'approve') {
+  // Acción individual: aprobar una sola publicación.
+  if (formData.has('approve_id')) {
+    const postId = String(formData.get('approve_id'));
     const result = await reviewPost(Astro.locals.supabase, postId, 'PUBLISHED');
     if (!result.success) actionError = result.error;
-  } else if (action === 'reject') {
+
+  // Acción individual: rechazar una sola publicación (con motivo).
+  } else if (formData.has('reject_id')) {
+    const postId = String(formData.get('reject_id'));
+    const reason = String(formData.get(`reason_${postId}`) ?? '').trim();
     if (!reason) {
       actionError = 'Debes indicar un motivo para rechazar la publicación.';
     } else {
       const result = await reviewPost(Astro.locals.supabase, postId, 'REJECTED', reason);
       if (!result.success) actionError = result.error;
+    }
+
+  // Acciones masivas: sobre todas las publicaciones seleccionadas.
+  } else if (formData.get('action') === 'bulk_approve' || formData.get('action') === 'bulk_reject') {
+    const isBulkReject = formData.get('action') === 'bulk_reject';
+    const selectedIds = formData.getAll('selected_ids').map(String);
+    const bulkReason = String(formData.get('bulk_reason') ?? '').trim();
+
+    if (selectedIds.length === 0) {
+      actionError = 'Selecciona al menos una publicación.';
+    } else if (isBulkReject && !bulkReason) {
+      actionError = 'Debes indicar un motivo para rechazar en lote.';
+    } else {
+      for (const postId of selectedIds) {
+        const result = isBulkReject
+          ? await reviewPost(Astro.locals.supabase, postId, 'REJECTED', bulkReason)
+          : await reviewPost(Astro.locals.supabase, postId, 'PUBLISHED');
+        if (result.success) successCount += 1;
+      }
+      if (successCount < selectedIds.length) {
+        actionError = `Se aplicó la acción a ${successCount} de ${selectedIds.length} publicaciones. Algunas fallaron — revisa e intenta de nuevo con las restantes.`;
+      }
     }
   }
 
@@ -28,7 +55,14 @@ if (Astro.request.method === 'POST') {
   }
 }
 
-const posts = await getPendingPosts(Astro.locals.supabase);
+const rawPosts = await getPendingPosts(Astro.locals.supabase);
+
+// Publicaciones con señales de alerta primero, para que el admin las
+// priorice — la moderación sigue siendo 100% humana, esto solo ayuda
+// a decidir por dónde empezar.
+const posts = rawPosts
+  .map((post) => ({ post, flags: getModerationFlags(post.title, post.description) }))
+  .sort((a, b) => b.flags.length - a.flags.length);
 
 const TYPE_LABELS: Record<PostType, string> = {
   EMPLOYMENT: 'Empleo',
@@ -46,50 +80,74 @@ const updated = Astro.url.searchParams.get('actualizado') === '1';
   {posts.length === 0 ? (
     <p class="empty-state">No hay publicaciones pendientes de revisión. 🎉</p>
   ) : (
-    <ul class="admin-post-list">
-      {posts.map((post) => (
-        <li class="admin-post-card">
-          <div class="post-card-header">
-            <span class="type-badge">{TYPE_LABELS[post.type]}</span>
-            <span class="post-card-date">
-              {new Date(post.createdAt).toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' })}
-            </span>
-          </div>
+    <form method="POST" id="moderation-form">
+      <div class="bulk-bar">
+        <label class="bulk-select-all">
+          <input type="checkbox" data-select-all-target="selected_ids" />
+          Seleccionar todas
+        </label>
+        <button type="submit" name="action" value="bulk_approve" class="btn-approve" data-loading-text="Aprobando...">
+          Aprobar seleccionadas
+        </button>
+        <input type="text" name="bulk_reason" placeholder="Motivo para rechazar en lote" class="bulk-reason-input" />
+        <button type="submit" name="action" value="bulk_reject" class="btn-danger" data-loading-text="Rechazando...">
+          Rechazar seleccionadas
+        </button>
+      </div>
 
-          <h2>{post.title}</h2>
-          <p class="post-card-meta">
-            {post.categoryName} · {post.municipio} · por {post.authorName}
-            {post.authorEmail && ` (${post.authorEmail})`}
-          </p>
-          <p>{post.description}</p>
-          {post.address && <p class="post-card-meta">📍 {post.address}</p>}
+      <ul class="admin-post-list">
+        {posts.map(({ post, flags }) => (
+          <li class:list={['admin-post-card', { 'admin-post-card-flagged': flags.length > 0 }]}>
+            <div class="post-card-header">
+              <label class="admin-checkbox">
+                <input type="checkbox" name="selected_ids" value={post.id} />
+              </label>
+              <span class="type-badge">{TYPE_LABELS[post.type]}</span>
+              <span class="post-card-date">
+                {new Date(post.createdAt).toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' })}
+              </span>
+            </div>
 
-          <details class="admin-details">
-            <summary>Ver contacto</summary>
-            <ul class="contact-list">
-              {post.contactWhatsapp && <li>WhatsApp: {post.contactWhatsapp}</li>}
-              {post.contactPhone && <li>Teléfono: {post.contactPhone}</li>}
-              {post.contactEmail && <li>Correo: {post.contactEmail}</li>}
-            </ul>
-          </details>
+            {flags.length > 0 && (
+              <div class="moderation-flags" role="alert">
+                <strong>⚠ Revisar con cuidado:</strong>
+                <ul>
+                  {flags.map((flag) => <li>{flag}</li>)}
+                </ul>
+              </div>
+            )}
 
-          <div class="admin-actions">
-            <form method="POST">
-              <input type="hidden" name="postId" value={post.id} />
-              <input type="hidden" name="action" value="approve" />
-              <button type="submit" class="btn-approve">Aprobar</button>
-            </form>
+            <h2>{post.title}</h2>
+            <p class="post-card-meta">
+              {post.categoryName} · {post.municipio} · por {post.authorName}
+              {post.authorEmail && ` (${post.authorEmail})`}
+            </p>
+            <p>{post.description}</p>
+            {post.address && <p class="post-card-meta">📍 {post.address}</p>}
 
-            <form method="POST" class="admin-reject-form">
-              <input type="hidden" name="postId" value={post.id} />
-              <input type="hidden" name="action" value="reject" />
+            <details class="admin-details">
+              <summary>Ver contacto</summary>
+              <ul class="contact-list">
+                {post.contactWhatsapp && <li>WhatsApp: {post.contactWhatsapp}</li>}
+                {post.contactPhone && <li>Teléfono: {post.contactPhone}</li>}
+                {post.contactEmail && <li>Correo: {post.contactEmail}</li>}
+              </ul>
+            </details>
+
+            <div class="admin-actions">
+              <button type="submit" name="approve_id" value={post.id} class="btn-approve" data-loading-text="Aprobando...">
+                Aprobar
+              </button>
+
               <label for={`reason-${post.id}`} class="visually-hidden">Motivo del rechazo</label>
-              <input type="text" id={`reason-${post.id}`} name="reason" placeholder="Motivo del rechazo (obligatorio)" />
-              <button type="submit" class="btn-danger">Rechazar</button>
-            </form>
-          </div>
-        </li>
-      ))}
-    </ul>
+              <input type="text" id={`reason-${post.id}`} name={`reason_${post.id}`} placeholder="Motivo del rechazo (obligatorio)" class="admin-reject-input" />
+              <button type="submit" name="reject_id" value={post.id} class="btn-danger" data-loading-text="Rechazando...">
+                Rechazar
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </form>
   )}
 </AdminLayout>

@@ -177,3 +177,15 @@ export interface DashboardStats {
   totalUsers: number;
   businessUsers: number;
 }
+
+export type NotificationType = 'POST_PUBLISHED' | 'POST_REJECTED';
+
+export interface AppNotification {
+  id: string;
+  userId: string;
+  type: NotificationType;
+  message: string;
+  link: string;
+  readAt: string | null;
+  createdAt: string;
+}

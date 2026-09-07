@@ -160,15 +160,17 @@ CI en GitHub Actions (`.github/workflows/ci.yml`): lint → typecheck → build 
 
 ## Roadmap
 
-**Implementado (MVP funcional completo):** autenticación, CRUD de publicaciones con moderación, búsqueda con filtros, perfiles personales y de negocio, panel de administración completo, sistema de reportes, SEO técnico, suite de pruebas de seguridad.
+**Implementado (MVP funcional completo, incluyendo iteraciones post-lanzamiento):** autenticación, CRUD de publicaciones con moderación, búsqueda con filtros, perfiles personales y de negocio (con página pública `/empresa/[slug]`), avatar con subida de imagen, panel de administración como dashboard con sidebar y **acciones masivas de moderación**, **señales de alerta semi-automáticas** (spam/estafa) en la cola de moderación, sistema de reportes, notificaciones in-app con contador junto al avatar, notificaciones por correo, cierre de sesión por inactividad, **compartir por WhatsApp**, SEO técnico, suite de pruebas de seguridad, mapa comunitario interactivo.
 
 **Post-MVP / Futuro:**
-- Perfil público de negocio (`/empresa/[slug]`) con listado de sus publicaciones.
 - Google OAuth.
 - Publicaciones y negocios destacados (monetización futura).
 - Conversión de cuenta `USER` a `BUSINESS` después del registro (hoy requiere intervención de un admin).
 - Expansión a otros municipios del Magdalena / región Caribe (la arquitectura de `locations` ya está preparada para esto).
 - Marcado automático de publicaciones como `EXPIRED` vía Edge Function (hoy es una consulta dinámica, suficiente para el volumen actual).
+- Notificaciones push/en tiempo real (hoy el contador se actualiza al navegar entre páginas, no al instante vía WebSocket).
+- Alertas de búsqueda guardada ("avísame cuando haya un empleo en X categoría").
+- Marcar una publicación como "ya resuelto/contratado" (distinto de eliminar).
 
 ## Contribución
 
